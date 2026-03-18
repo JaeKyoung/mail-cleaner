@@ -163,6 +163,66 @@ Each module has a single responsibility and a clear public interface:
 
 - **Abstract snippets**: Google Scholar alert emails include only partial abstracts (snippets), not full text. The parser extracts whatever Google provides. Getting full abstracts would require crawling individual paper pages, which is not implemented due to complexity (varying site structures) and rate limiting concerns.
 
+## Using as a Submodule (OpenClaw Skill)
+
+This project can be used as a git submodule within a parent repo (e.g., an OpenClaw workspace). In this setup, credentials live **outside** the submodule so it stays clean.
+
+### Directory layout
+
+```
+parent-repo/
+├── apps/mail-cleaner/              ← this repo (submodule)
+├── credentials/mail-cleaner/       ← credentials (gitignored in parent)
+│   ├── credentials.json
+│   └── token.json
+└── skills/mail-cleaner/            ← OpenClaw skill definition
+```
+
+### Setup
+
+1. Add as submodule:
+   ```bash
+   git submodule add https://github.com/JaeKyoung/mail-cleaner.git apps/mail-cleaner
+   ```
+
+2. Place Gmail OAuth credentials outside the submodule:
+   ```bash
+   mkdir -p credentials/mail-cleaner
+   cp credentials.json credentials/mail-cleaner/
+   ```
+
+3. Set environment variables to point to the external credentials. No `.env` file needed inside the submodule — configure via your parent system (e.g., OpenClaw `openclaw.json`):
+   ```
+   GMAIL_CREDENTIALS_PATH=/absolute/path/to/credentials/mail-cleaner/credentials.json
+   GMAIL_TOKEN_PATH=/absolute/path/to/credentials/mail-cleaner/token.json
+   SLACK_BOT_TOKEN=xoxb-...
+   ```
+
+   For OpenClaw, set these in `~/.openclaw/openclaw.json`:
+   ```json
+   {
+     "skills": {
+       "entries": {
+         "mail-cleaner": {
+           "enabled": true,
+           "env": {
+             "SLACK_BOT_TOKEN": "xoxb-...",
+             "GMAIL_CREDENTIALS_PATH": "/path/to/credentials/mail-cleaner/credentials.json",
+             "GMAIL_TOKEN_PATH": "/path/to/credentials/mail-cleaner/token.json"
+           }
+         }
+       }
+     }
+   }
+   ```
+
+4. Run:
+   ```bash
+   cd apps/mail-cleaner && pixi install && pixi run run
+   ```
+
+`config.py` resolves relative paths against the project root and supports absolute paths from env vars, so both standalone and submodule usage work without code changes.
+
 ---
 
 All code in this project was written by [Claude Code](https://claude.com/claude-code) (Anthropic).
