@@ -82,6 +82,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 - "New articles" emails must always be included in summaries — never skip or filter them out
 - Summarizer uses Ollama (qwen3:8b) locally — do not call external APIs for summarization
 - Gmail `send` scope is intentionally excluded — only `readonly` and `modify` are used
+- **Bot reusability**: `pipeline.py` is designed for reuse by future interactive bot — keep it pure and parameterizable
+- **Configuration approach**: `.env` for sensitive info only (tokens, credentials); CLI arguments (click) for all other settings
 
 ## Adding dependencies
 
@@ -105,6 +107,18 @@ pixi run run
 
 - **Phase 3**: Add `cleanup.py`, use `Paper.source_email_id` to trash processed emails
 - **Phase 4**: Add `scorer.py`, `db.py`, insert scoring step between `group_and_dedup()` and output
+- **Future: Interactive Bot**: Create `bot.py` that reuses `pipeline.py` for on-demand digests
+  - Use `run_digest_pipeline(config, max_results=N, days_back=M)` for custom parameters
+  - Bot can call same logic without duplicating code
+  - Consider Slack Socket Mode or Events API for implementation
+- **Future: Full Abstract Fetching**: Add module to crawl paper URLs for full abstracts
+  - Would need site-specific parsers (arXiv, PubMed, journal sites, etc.)
+  - Requires rate limiting and error handling
+  - Consider caching to avoid re-fetching
+
+## Known Limitations
+
+- **Abstract truncation**: Google Scholar alert emails only include snippets (partial abstracts), not full abstracts. The parser extracts whatever Google provides. To get full abstracts would require crawling individual paper URLs (not currently implemented due to complexity and rate limiting concerns).
 
 ## Key warnings
 

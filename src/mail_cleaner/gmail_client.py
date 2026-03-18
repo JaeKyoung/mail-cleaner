@@ -34,14 +34,25 @@ def get_gmail_service(config: Config):
     return build("gmail", "v1", credentials=creds)
 
 
-def fetch_scholar_emails(service, config: Config) -> list[dict]:
-    """Fetch Google Scholar alert emails from Gmail."""
-    query = f"{config.scholar_query} newer_than:{config.days_back}d"
+def fetch_scholar_emails(
+    service,
+    config: Config,
+    max_results: int | None = None,
+    days_back: int | None = None,
+) -> list[dict]:
+    """Fetch Google Scholar alert emails from Gmail.
+
+    Override config values if parameters provided.
+    """
+    actual_max = max_results if max_results is not None else config.max_results
+    actual_days = days_back if days_back is not None else config.days_back
+
+    query = f"{config.scholar_query} newer_than:{actual_days}d"
 
     results = (
         service.users()
         .messages()
-        .list(userId="me", q=query, maxResults=config.max_results)
+        .list(userId="me", q=query, maxResults=actual_max)
         .execute()
     )
 

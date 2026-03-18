@@ -17,13 +17,12 @@ def print_digest(digests: list[DailyDigest]) -> None:
 
         for i, paper in enumerate(digest.papers, 1):
             authors = ", ".join(paper.authors) if paper.authors else "Unknown"
-            abstract = paper.abstract[:200] + "..." if len(paper.abstract) > 200 else paper.abstract
 
             print(f"  {i}. {paper.title}")
             print(f"     Authors: {authors}")
             if paper.journal:
                 print(f"     Journal: {paper.journal}")
-            if abstract:
-                print(f"     Abstract: {abstract}")
+            if paper.abstract:
+                print(f"     Abstract: {paper.abstract}")
             print(f"     URL: {paper.url}")
             print()

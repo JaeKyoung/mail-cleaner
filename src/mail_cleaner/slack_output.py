@@ -38,9 +38,9 @@ def send_digest_to_slack(
     # Post each paper as a thread reply with blocks
     for digest in digests:
         for i, paper in enumerate(digest.papers):
-            print(f"  Summarizing paper {i + 1}/{len(digest.papers)}...")
+            print(f"  Processing paper {i + 1}/{len(digest.papers)}...")
             authors = ", ".join(paper.authors) if paper.authors else "Unknown"
-            summary_text = summarize_abstract(paper)
+            summary_text = summarize_abstract(paper, model=config.ollama_model) if config.use_summary else ""
 
             title_line = f"<{paper.url}|*{paper.title}*>"
             meta_parts = [authors]
@@ -65,11 +65,10 @@ def send_digest_to_slack(
                 })
             else:
                 # Fallback to original abstract if summary is empty
-                abstract = paper.abstract[:300] + "..." if len(paper.abstract) > 300 else paper.abstract
-                if abstract:
+                if paper.abstract:
                     blocks.append({
                         "type": "section",
-                        "text": {"type": "mrkdwn", "text": f"*[Abstract]*\n{abstract}"},
+                        "text": {"type": "mrkdwn", "text": f"*[Abstract]*\n{paper.abstract}"},
                     })
 
             fallback = f"{paper.title}\n{meta_line}\n{summary_text}"

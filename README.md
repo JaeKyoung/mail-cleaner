@@ -1,7 +1,7 @@
 # Mail Cleaner
 
 <p align="center">
-  <img src="img/B.png" alt="Mail Cleaner" width="200">
+  <img src="img/B.png" alt="Mail Cleaner">
 </p>
 
 A Gmail cleaning bot that processes Google Scholar alert emails — groups papers by date, removes duplicates, and presents a clean digest.
@@ -14,6 +14,7 @@ Tested with 50 emails / 304 papers parsed, deduplicated to 204 unique papers acr
 - **Phase 2** (done): Send digest to Slack with AI-summarized abstracts (see [Slack setup](doc/slack-setup.md))
 - **Phase 3** (planned): Auto-delete processed emails
 - **Phase 4** (planned): Paper recommendation DB integration + importance scoring
+- **Future** (planned): Interactive Slack bot for on-demand digests (reuses `pipeline.py`)
 
 ## Prerequisites
 
@@ -60,17 +61,59 @@ pixi run run
 
 On first run, a browser window opens for Gmail OAuth consent. After granting access, `credentials/token.json` is saved for subsequent runs.
 
+#### CLI Options
+
+All non-sensitive settings can be customized via command-line arguments:
+
+```bash
+# Use default settings
+pixi run run
+
+# Fetch only recent 10 papers from last 3 days
+pixi run run --max-results 10 --days-back 3
+
+# Use openclaw model
+pixi run run --model openclaw
+
+# Use raw abstract instead of AI summary
+pixi run run --no-summary
+
+# Post to different channel
+pixi run run --channel research-papers
+
+# Combine options
+pixi run run --max-results 20 --days-back 14 --model openclaw --channel journal-club
+```
+
+To see all available options:
+```bash
+pixi run run --help
+```
+
 ## Configuration
+
+### Environment Variables (.env)
+
+Sensitive tokens and file paths are stored in `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GMAIL_CREDENTIALS_PATH` | `credentials/credentials.json` | Path to OAuth credentials |
 | `GMAIL_TOKEN_PATH` | `credentials/token.json` | Path to store auth token |
-| `SCHOLAR_QUERY` | `from:scholaralerts-noreply@google.com` | Gmail search query |
-| `MAX_RESULTS` | `50` | Max emails to fetch per run |
-| `DAYS_BACK` | `7` | How many days back to look |
 | `SLACK_BOT_TOKEN` | | Slack Bot User OAuth Token ([setup](doc/slack-setup.md)) |
-| `SLACK_CHANNEL` | `mail-cleaner` | Slack channel to post digest |
+
+### CLI Options
+
+Non-sensitive settings are configured via command-line arguments (see `pixi run run --help`):
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--max-results` | `50` | Max emails to fetch per run |
+| `--days-back` | `7` | How many days back to look |
+| `--model` | `qwen3:8b` | Ollama model for abstract summarization |
+| `--no-summary` | `false` | Use raw abstract instead of AI summary |
+| `--channel` | `journal-club` | Slack channel to post digest |
+| `--query` | `from:scholaralerts-noreply@google.com` | Gmail search query |
 
 ## Project Structure
 
@@ -79,6 +122,7 @@ mail-cleaner/
 ├── src/mail_cleaner/
 │   ├── __init__.py
 │   ├── main.py           # Entry point — runs the pipeline
+│   ├── pipeline.py        # Core pipeline logic (reusable for bot)
 │   ├── config.py          # Configuration loading from .env
 │   ├── gmail_client.py    # Gmail API authentication + email fetching
 │   ├── scholar_parser.py   # Google Scholar HTML email parsing
@@ -107,12 +151,17 @@ Gmail API → fetch emails → parse HTML → extract papers → deduplicate →
 
 Each module has a single responsibility and a clear public interface:
 
+- `pipeline.run_digest_pipeline()` → orchestrates full pipeline (fetch → parse → dedup), designed for reuse by CLI and future bot
 - `gmail_client.fetch_scholar_emails()` → `list[dict]` (raw Gmail messages)
 - `scholar_parser.parse_email()` → `list[Paper]` (parsed from one email)
 - `dedup.group_and_dedup()` → `list[DailyDigest]` (grouped + deduplicated)
 - `output.print_digest()` → console output
 - `summarizer.summarize_abstract()` → 3-bullet summary via Ollama (qwen3:8b)
 - `slack_output.send_digest_to_slack()` → Slack channel output (with summaries in thread)
+
+## Known Limitations
+
+- **Abstract snippets**: Google Scholar alert emails include only partial abstracts (snippets), not full text. The parser extracts whatever Google provides. Getting full abstracts would require crawling individual paper pages, which is not implemented due to complexity (varying site structures) and rate limiting concerns.
 
 ---
 
