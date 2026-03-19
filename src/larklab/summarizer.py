@@ -1,6 +1,6 @@
 import ollama
 
-from mail_cleaner.models import Paper
+from larklab.models import Paper
 
 DEFAULT_MODEL = "qwen3:8b"
 

@@ -1,4 +1,4 @@
-from mail_cleaner.models import DailyDigest
+from larklab.models import DailyDigest
 
 
 def print_digest(digests: list[DailyDigest]) -> None:

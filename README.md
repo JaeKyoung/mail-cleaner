@@ -1,22 +1,29 @@
-# Mail Cleaner
+# LarkLab
 
 <p align="center">
-  <img src="img/B.png" alt="Mail Cleaner">
+  <img src="img/B.png" alt="LarkLab">
 </p>
 
-A Gmail cleaning bot that processes Google Scholar alert emails — groups papers by date, removes duplicates, and presents a clean digest.
+A personal research assistant that collects, organizes, and recommends papers.
 
-Tested with 50 emails / 304 papers parsed, deduplicated to 204 unique papers across 3 days.
+## What LarkLab does
 
-## Features
+1. **Collect** — Gather papers from Google Scholar alerts (and future crawlers)
+2. **Store** — Save to local DB with vector embeddings for similarity search
+3. **Organize** — Classify papers by research field, deduplicate
+4. **Recommend** — Score and surface relevant papers based on your interests
+5. **Deliver** — Send daily digests to Slack with AI-summarized abstracts
 
-- **Phase 1** (done): Fetch Scholar alerts → parse papers → deduplicate → console output
-- **Phase 2** (done): Send digest to Slack with AI-summarized abstracts (see [Slack setup](doc/slack-setup.md))
-- **Phase 2.5** (done): Fetch full abstracts from paper URLs (arXiv, PubMed, generic meta tags)
-- **Phase 2.7** (done): Batch-based email processing (`--batches N`)
-- **Phase 3** (done): Auto-delete processed emails (enabled by default, skip with `--no-cleanup`)
-- **Phase 4** (planned): Paper recommendation DB integration + importance scoring
-- **Future** (planned): Interactive Slack bot for on-demand digests (reuses `pipeline.py`)
+## Roadmap
+
+- **Scholar Digest** (done): Gmail fetch → parse → dedup → abstract summarization → Slack digest
+- **Email Cleanup** (done): Auto-trash processed emails after digest
+- **Paper DB** (planned): Local storage with `sqlite-vec` + Ollama embeddings
+- **Similarity Search** (planned): Find related papers by vector similarity
+- **Field Classification** (planned): Auto-categorize papers by research area
+- **Recommendation** (planned): Importance scoring based on user interests
+- **Paper Crawler** (planned): Collect papers beyond Scholar alerts
+- **Slack Bot** (planned): On-demand queries and digests via Slack
 
 ## Prerequisites
 
@@ -27,41 +34,42 @@ Tested with 50 emails / 304 papers parsed, deduplicated to 204 unique papers acr
 
 ## Setup
 
-### 1. Install dependencies
-
-```bash
-pixi install
-```
-
-### 2. Configure Gmail API credentials
+### 1. Configure Gmail API credentials
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project (or select existing)
-3. Enable the **Gmail API**
+3. Enable the **Gmail API**: Go to **API & Services** → **Library**, search "Gmail API", click it, then click **Enable**
 4. Navigate to **API & Services** → **OAuth consent screen**
 5. Set User type to **External**, fill in app name and email, save
 6. Add your Gmail address as a **test user**
 7. Go to **Credentials** → **Create Credentials** → **OAuth 2.0 Client ID**
 8. Application type: **Desktop application**
-9. Download the JSON file and save it:
+9. Download the JSON file
+10. (Optional) Move it to the project for convenience — you can also set a custom path via `GMAIL_CREDENTIALS_PATH` in `.env`:
 
 ```bash
 mv ~/Downloads/client_secret_*.json credentials/credentials.json
 ```
 
-### 3. Set up environment variables
+### 2. Set up environment variables
 
 ```bash
 cp .env.example .env
 ```
 
+### 3. Install dependencies
+
+```bash
+pixi install
+```
+
 ### 4. Run
 
 ```bash
-pixi run run
+pixi run digest
 ```
 
-On first run, a browser window opens for Gmail OAuth consent. After granting access, `credentials/token.json` is saved for subsequent runs.
+On first run, a browser window opens for Gmail OAuth consent. Gmail scopes (`readonly`, `modify`) are requested automatically by the code — no manual scope configuration needed in Google Cloud Console. After granting access, `credentials/token.json` is saved for subsequent runs.
 
 #### CLI Options
 
@@ -69,44 +77,42 @@ All non-sensitive settings can be customized via command-line arguments:
 
 ```bash
 # Use default settings
-pixi run run
+pixi run digest
 
 # Fetch only recent 10 papers from last 3 days
-pixi run run --max-results 10 --days-back 3
+pixi run digest --max-results 10 --days-back 3
 
-# Use openclaw model
-pixi run run --model openclaw
+# Use a different Ollama model (default: qwen3:8b)
+pixi run digest --model gemma2:9b
 
 # Use raw abstract instead of AI summary
-pixi run run --no-summary
+pixi run digest --no-summary
 
 # Skip fetching full abstracts (use snippets only)
-pixi run run --no-fetch-abstracts
+pixi run digest --no-fetch-abstracts
 
 # Process only the latest batch
-pixi run run --batches 1
+pixi run digest --batches 1
 
 # Print only (skip Slack)
-pixi run run --no-slack
+pixi run digest --no-slack
 
 # Skip trashing processed emails (cleanup is on by default)
-pixi run run --no-cleanup
+pixi run digest --no-cleanup
 
 # Post to different channel
-pixi run run --channel research-papers
+pixi run digest --channel research-papers
 
 # Combine options
-pixi run run --days-back 7 --batches 2 --no-slack --no-summary
+pixi run digest --days-back 7 --batches 2 --no-slack --no-summary
 ```
 
 To see all available options:
 ```bash
-pixi run run --help
+pixi run digest --help
 ```
 
 ## Configuration
-
-### Environment Variables (.env)
 
 Sensitive tokens and file paths are stored in `.env`:
 
@@ -114,60 +120,22 @@ Sensitive tokens and file paths are stored in `.env`:
 |----------|---------|-------------|
 | `GMAIL_CREDENTIALS_PATH` | `credentials/credentials.json` | Path to OAuth credentials |
 | `GMAIL_TOKEN_PATH` | `credentials/token.json` | Path to store auth token |
-| `SLACK_BOT_TOKEN` | | Slack Bot User OAuth Token ([setup](doc/slack-setup.md)) |
-
-### CLI Options
-
-Non-sensitive settings are configured via command-line arguments (see `pixi run run --help`):
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--max-results` | `200` | Max emails to fetch per run |
-| `--days-back` | `7` | How many days back to look |
-| `--model` | `qwen3:8b` | Ollama model for abstract summarization |
-| `--no-summary` | `false` | Use raw abstract instead of AI summary |
-| `--no-fetch-abstracts` | `false` | Skip fetching full abstracts from paper URLs |
-| `--batches` | all | Process only the latest N batches |
-| `--no-slack` | `false` | Skip sending digest to Slack (print only) |
-| `--no-cleanup` | `false` | Skip trashing processed emails after output |
-| `--verbose` | `false` | Show details of trashed emails |
-| `--channel` | `journal-club` | Slack channel to post digest |
-| `--query` | `from:scholaralerts-noreply@google.com` | Gmail search query |
-
-## Project Structure
-
-```
-mail-cleaner/
-├── src/mail_cleaner/
-│   ├── __init__.py
-│   ├── main.py           # Entry point — runs the pipeline
-│   ├── pipeline.py        # Core pipeline logic (reusable for bot)
-│   ├── config.py          # Configuration loading from .env
-│   ├── gmail_client.py    # Gmail API authentication + email fetching
-│   ├── scholar_parser.py   # Google Scholar HTML email parsing
-│   ├── abstract_fetcher.py # Full abstract fetching (arXiv, PubMed, generic)
-│   ├── cleanup.py          # Trash processed emails via Gmail API
-│   ├── dedup.py           # Date grouping + deduplication
-│   ├── models.py          # Data classes (Paper, DailyDigest)
-│   ├── output.py          # Console output formatting
-│   ├── slack_output.py    # Slack digest output
-│   └── summarizer.py      # Abstract summarization via Ollama (qwen3:8b)
-├── doc/
-│   ├── architecture.md    # Architecture overview
-│   ├── setup-guide.md     # Detailed setup instructions
-│   └── slack-setup.md     # Slack Bot setup guide
-├── img/                   # Images for documentation
-├── credentials/           # OAuth credentials (gitignored)
-├── pyproject.toml         # Project config + pixi dependencies
-├── CLAUDE.md              # AI reference guide
-├── .env.example           # Environment variable template
-└── README.md
-```
+| `SLACK_BOT_TOKEN` | | Slack Bot User OAuth Token ([setup](docs/slack-setup.md)) |
 
 ## Pipeline
 
 ```
-Gmail API → list emails → [batch detect → select batches] → full fetch → parse HTML → extract papers → deduplicate → group by date → fetch full abstracts → summarize (Ollama) → output
+Gmail API
+→ list emails
+→ [batch detect → select batches]
+→ full fetch
+→ parse HTML
+→ extract papers
+→ deduplicate
+→ group by date
+→ fetch full abstracts
+→ summarize (Ollama)
+→ Slack digest
 ```
 
 Each module has a single responsibility and a clear public interface:
@@ -185,9 +153,11 @@ Each module has a single responsibility and a clear public interface:
 
 - **Abstract fetching coverage**: Full abstract fetching works for arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
 
-## Scheduling with Cron
+## Usage
 
-To run mail-cleaner automatically every day at 9:00 AM:
+### Scheduling with Cron
+
+To run larklab automatically every day at 9:00 AM:
 
 1. Open the crontab editor:
    ```bash
@@ -196,7 +166,7 @@ To run mail-cleaner automatically every day at 9:00 AM:
 
 2. Add the following line:
    ```bash
-   0 9 * * * cd /Users/jk_cssb/clawbase/apps/mail-cleaner && /Users/jk_cssb/.pixi/bin/pixi run run >> /tmp/mail-cleaner.log 2>&1
+   0 9 * * * cd /Users/jk_cssb/clawbase/apps/larklab && /Users/jk_cssb/.pixi/bin/pixi run digest >> /tmp/larklab.log 2>&1
    ```
 
 3. Verify the cron job is registered:
@@ -204,69 +174,13 @@ To run mail-cleaner automatically every day at 9:00 AM:
    crontab -l
    ```
 
-Logs are written to `/tmp/mail-cleaner.log`. To disable, remove the line with `crontab -e`.
+Logs are written to `/tmp/larklab.log`. To disable, remove the line with `crontab -e`.
 
 > **Note**: On macOS, you may need to grant **Full Disk Access** to `cron` (or your terminal) in **System Settings → Privacy & Security** for Gmail token access to work.
 
-## Using as a Submodule (OpenClaw Skill)
+### Slack Bot
 
-This project can be used as a git submodule within a parent repo (e.g., [clawbase](https://github.com/JaeKyoung/clawbase)). In this setup, credentials live **outside** the submodule so it stays clean.
-
-### Directory layout
-
-```
-parent-repo/
-├── apps/mail-cleaner/              ← this repo (submodule)
-├── credentials/mail-cleaner/       ← credentials (gitignored in parent)
-│   ├── credentials.json
-│   └── token.json
-└── skills/mail-cleaner/            ← OpenClaw skill definition
-```
-
-### Setup
-
-1. Add as submodule:
-   ```bash
-   git submodule add https://github.com/JaeKyoung/mail-cleaner.git apps/mail-cleaner
-   ```
-
-2. Place Gmail OAuth credentials outside the submodule:
-   ```bash
-   mkdir -p credentials/mail-cleaner
-   cp credentials.json credentials/mail-cleaner/
-   ```
-
-3. Set environment variables to point to the external credentials. No `.env` file needed inside the submodule — configure via your parent system (e.g., OpenClaw `openclaw.json`):
-   ```
-   GMAIL_CREDENTIALS_PATH=/absolute/path/to/credentials/mail-cleaner/credentials.json
-   GMAIL_TOKEN_PATH=/absolute/path/to/credentials/mail-cleaner/token.json
-   SLACK_BOT_TOKEN=xoxb-...
-   ```
-
-   For OpenClaw, set these in `~/.openclaw/openclaw.json`:
-   ```json
-   {
-     "skills": {
-       "entries": {
-         "mail-cleaner": {
-           "enabled": true,
-           "env": {
-             "SLACK_BOT_TOKEN": "xoxb-...",
-             "GMAIL_CREDENTIALS_PATH": "/path/to/credentials/mail-cleaner/credentials.json",
-             "GMAIL_TOKEN_PATH": "/path/to/credentials/mail-cleaner/token.json"
-           }
-         }
-       }
-     }
-   }
-   ```
-
-4. Run:
-   ```bash
-   cd apps/mail-cleaner && pixi install && pixi run run
-   ```
-
-`config.py` resolves relative paths against the project root and supports absolute paths from env vars, so both standalone and submodule usage work without code changes.
+TODO
 
 ---
 

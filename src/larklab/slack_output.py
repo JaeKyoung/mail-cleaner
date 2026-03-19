@@ -1,9 +1,9 @@
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from mail_cleaner.config import Config
-from mail_cleaner.models import DailyDigest
-from mail_cleaner.summarizer import summarize_abstract
+from larklab.config import Config
+from larklab.models import DailyDigest
+from larklab.summarizer import summarize_abstract
 
 
 def send_digest_to_slack(

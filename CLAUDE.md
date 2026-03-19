@@ -104,7 +104,7 @@ Follow `.github/git_commit_template.md` for commit messages.
 ## Project Rules
 
 - All code and documentation in English
-- Use `src/` layout — all Python source under `src/mail_cleaner/`
+- Use `src/` layout — all Python source under `src/larklab/`
 - Use pixi with `pyproject.toml` — do NOT create `requirements.txt`
 - Use dataclasses for data transfer between modules
 - Each module has one public interface — keep it that way
@@ -114,8 +114,6 @@ Follow `.github/git_commit_template.md` for commit messages.
 - Gmail `send` scope is intentionally excluded — only `readonly` and `modify` are used
 - **Bot reusability**: `pipeline.py` is designed for reuse by future interactive bot — keep it pure and parameterizable
 - **Configuration approach**: `.env` for sensitive info only (tokens, credentials); CLI arguments (click) for all other settings
-- **Submodule-friendly**: Credentials live outside the repo (absolute paths via env vars). Do not hardcode paths.
-- **MCP-ready design**: Keep modules pure and reusable. Any new module should be callable from both CLI (`main.py`) and a future MCP server (`mcp_server.py`) without modification.
 - **Embedding/DB**: Use `sqlite-vec` + Ollama local embeddings only. No external vector DB services.
 
 ## Adding dependencies
@@ -128,44 +126,12 @@ pixi add --pypi <pypi-package>
 ## Running
 
 ```bash
-pixi run run
+pixi run digest
 ```
 
-## Current status
-
-- Phase 1 (done): Gmail fetch → parse → dedup → console output
-- Phase 2 (done): Slack digest with AI-summarized abstracts via Ollama
-- Phase 2.5 (done): Full abstract fetching from paper URLs (arXiv, PubMed, generic meta tags)
-- Phase 2.7 (done): Batch-based email processing — detect batches by 2-hour gap, process latest N only
-- Phase 3 (done): Email cleanup — trash processed emails by default (skip with `--no-cleanup`)
-
-## Extension points
-
-- **Phase 4: Vector DB + Scoring** — designed to integrate with MCP server later
-  - Add `db.py` with `sqlite-vec` for paper storage + vector similarity search
-  - Add `scorer.py` for importance scoring based on embedding similarity
-  - Use local embeddings via Ollama (`nomic-embed-text`) — no external APIs
-  - `Paper` dataclass should gain an `embedding: list[float] | None` field
-  - DB schema: papers table (metadata + embedding), user_interests table (reference embeddings)
-  - Insert scoring step between `group_and_dedup()` and output
-  - Keep DB operations in `db.py` only — other modules must not import sqlite directly
-- **Future: MCP Server** — expose mail-cleaner capabilities as MCP tools
-  - Target: OpenClaw and other agents can call paper-search, paper-score, paper-manage
-  - Use FastMCP (Python) to stay in the same stack
-  - MCP tools: `search_similar_papers(query)`, `score_papers(paper_ids)`, `get_digest(days_back)`
-  - MCP server should reuse `pipeline.py` and `db.py` — no duplicated logic
-  - Keep as a separate entry point (`mcp_server.py`), not embedded in `main.py`
-- **Future: Interactive Bot**: Create `bot.py` that reuses `pipeline.py` for on-demand digests
-  - Use `run_digest_pipeline(config, max_results=N, days_back=M)` for custom parameters
-  - Bot can call same logic without duplicating code
-- **Future: Abstract Caching**: Cache fetched abstracts to avoid re-fetching (integrate with Phase 4 DB)
-
-## Known Limitations
-
-- **Abstract fetching coverage**: Full abstract fetching supports arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
 
 ## Key warnings
 
 - `credentials/` is gitignored — never commit OAuth secrets
 - `.env` is gitignored — never commit environment variables
-- Keep `doc/` and `README.md` updated when making significant changes
+- Keep `docs/` and `README.md` updated when making significant changes

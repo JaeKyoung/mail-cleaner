@@ -2,7 +2,7 @@
 
 ## Overview
 
-Mail Cleaner follows a linear pipeline architecture. Each stage processes data and passes it to the next.
+LarkLab follows a linear pipeline architecture. Each stage processes data and passes it to the next.
 
 ```
 ┌───────────┐   ┌────────┐   ┌───────┐   ┌───────────┐   ┌───────────┐   ┌────────┐
@@ -53,9 +53,28 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 
 ## Extension Points
 
-| Phase | New modules | Integration point |
-|-------|-------------|-------------------|
-| Phase 2: Slack output (done) | `slack_output.py`, `summarizer.py` | Sends digest with AI summaries to Slack thread |
-| Phase 2.5: Full abstracts (done) | `abstract_fetcher.py` | Fetches full abstracts after dedup, before summarization |
-| Phase 3: Email cleanup (default on, `--no-cleanup` to skip) | `cleanup.py` | Use `Paper.source_email_id` to delete processed emails |
-| Phase 4: Scoring | `scorer.py`, `db.py` | Insert between `group_and_dedup()` and output in `main.py` |
+### Completed
+
+| Phase | Modules | Description |
+|-------|---------|-------------|
+| Slack output | `slack_output.py`, `summarizer.py` | Sends digest with AI summaries to Slack thread |
+| Full abstracts | `abstract_fetcher.py` | Fetches full abstracts after dedup, before summarization |
+| Email cleanup | `cleanup.py` | Default on (`--no-cleanup` to skip). Uses `Paper.source_email_id` to trash processed emails |
+
+### Planned
+
+- **Paper DB**: `db.py` with `sqlite-vec` for paper storage + vector similarity search
+  - Use local embeddings via Ollama (`nomic-embed-text`) — no external APIs
+  - `Paper` dataclass should gain an `embedding: list[float] | None` field
+  - DB schema: papers table (metadata + embedding), user_interests table (reference embeddings)
+  - Keep DB operations in `db.py` only — other modules must not import sqlite directly
+- **Similarity Search + Recommendation**: `scorer.py` for importance scoring based on embedding similarity
+  - Insert scoring step between `group_and_dedup()` and output
+- **Field Classification**: Auto-categorize papers by research area
+- **Paper Crawler**: Collect papers beyond Scholar alerts
+- **Slack Bot**: `bot.py` that reuses `pipeline.py` for on-demand digests and queries
+- **Multi-backend summarization**: Currently Ollama only (`ollama.chat()`). To support other backends (OpenAI, Claude, etc.), consider `litellm` or a provider flag in `summarizer.py`
+
+## Known Limitations
+
+- **Abstract fetching coverage**: Full abstract fetching supports arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
