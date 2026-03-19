@@ -17,7 +17,7 @@ def summarize_abstract(paper: Paper, model: str = DEFAULT_MODEL) -> str:
         "• Specific model/algorithm/architecture, input representation, and technical novelty (1-2 sentences)\n"
         "• Main finding (1 sentence)\n\n"
         "Be technical. Never use vague phrases like 'AI algorithms' or 'advanced methods'. "
-        "Name the exact technique. "
+        "Name the exact technique. Always respond in English. "
         "Do NOT include numbers or metrics not explicitly in the abstract. "
         "Do not repeat the title. No preamble.\n\n"
         f"Title: {paper.title}\n"
