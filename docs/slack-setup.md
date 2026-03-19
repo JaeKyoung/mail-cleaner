@@ -4,7 +4,7 @@
 
 1. Go to [Slack API Apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
-3. App Name: `mail-cleaner`
+3. App Name: `larklab`
 4. Select your workspace → **Create App**
 
 ## 2. Add Bot Permissions
@@ -28,7 +28,7 @@ Add the token to your `.env` file:
 
 ```bash
 SLACK_BOT_TOKEN=xoxb-your-token-here
-SLACK_CHANNEL=mail-cleaner
+SLACK_CHANNEL=larklab
 ```
 
 ## 5. Invite Bot to Channel
@@ -36,7 +36,7 @@ SLACK_CHANNEL=mail-cleaner
 In Slack, open the channel you want to use and type:
 
 ```
-/invite @mail-cleaner
+/invite @larklab
 ```
 
 ## Security

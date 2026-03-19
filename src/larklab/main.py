@@ -1,10 +1,10 @@
 import click
 
-from mail_cleaner.cleanup import trash_processed_emails
-from mail_cleaner.config import load_config
-from mail_cleaner.output import print_digest
-from mail_cleaner.pipeline import run_digest_pipeline
-from mail_cleaner.slack_output import send_digest_to_slack
+from larklab.cleanup import trash_processed_emails
+from larklab.config import load_config
+from larklab.output import print_digest
+from larklab.pipeline import run_digest_pipeline
+from larklab.slack_output import send_digest_to_slack
 
 
 @click.command()

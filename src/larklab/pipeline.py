@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 
-from mail_cleaner.abstract_fetcher import fetch_full_abstracts
-from mail_cleaner.config import Config
-from mail_cleaner.dedup import group_and_dedup
-from mail_cleaner.gmail_client import fetch_scholar_emails, get_gmail_service
-from mail_cleaner.models import DailyDigest
-from mail_cleaner.scholar_parser import parse_email
+from larklab.abstract_fetcher import fetch_full_abstracts
+from larklab.config import Config
+from larklab.dedup import group_and_dedup
+from larklab.gmail_client import fetch_scholar_emails, get_gmail_service
+from larklab.models import DailyDigest
+from larklab.scholar_parser import parse_email
 
 GAP_HOURS = 2
 

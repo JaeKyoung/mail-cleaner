@@ -11,8 +11,8 @@
 ## Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/JaeKyoung/mail-cleaner.git
-cd mail-cleaner
+git clone https://github.com/JaeKyoung/larklab.git
+cd larklab
 pixi install
 ```
 
@@ -22,7 +22,7 @@ pixi install
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Click **Select a project** → **New Project**
-3. Name it (e.g., "mail-cleaner") and create
+3. Name it (e.g., "larklab") and create
 
 ### Enable Gmail API
 
@@ -36,7 +36,7 @@ pixi install
 2. Click **Create Credentials** → **OAuth 2.0 Client ID**
 3. If prompted, configure the OAuth consent screen:
    - User type: **External** (or Internal if using Google Workspace)
-   - App name: "mail-cleaner"
+   - App name: "larklab"
    - Add your email as a test user
 4. Application type: **Desktop application**
 5. Download the JSON file
@@ -65,7 +65,7 @@ See [slack-setup.md](slack-setup.md) for Slack Bot configuration.
 ## Step 6: First Run
 
 ```bash
-pixi run run
+pixi run digest
 ```
 
 A browser window will open asking you to grant Gmail read access. After consenting, a `credentials/token.json` file is created automatically for future runs.

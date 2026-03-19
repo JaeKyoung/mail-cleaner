@@ -2,8 +2,8 @@
 
 import sys
 
-from mail_cleaner.config import load_config
-from mail_cleaner.gmail_client import get_gmail_service
+from larklab.config import load_config
+from larklab.gmail_client import get_gmail_service
 
 
 def main():

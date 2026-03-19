@@ -1,4 +1,4 @@
-from mail_cleaner.models import DailyDigest
+from larklab.models import DailyDigest
 
 
 def trash_processed_emails(

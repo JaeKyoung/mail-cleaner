@@ -1,8 +1,8 @@
 """Fetch a few Scholar emails and inspect parsing results in detail."""
 
-from mail_cleaner.config import load_config
-from mail_cleaner.gmail_client import fetch_scholar_emails, get_gmail_service
-from mail_cleaner.scholar_parser import parse_email, _get_html_body
+from larklab.config import load_config
+from larklab.gmail_client import fetch_scholar_emails, get_gmail_service
+from larklab.scholar_parser import parse_email, _get_html_body
 
 
 def main():

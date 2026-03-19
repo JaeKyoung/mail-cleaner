@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from mail_cleaner.models import DailyDigest, Paper
+from larklab.models import DailyDigest, Paper
 
 
 def _normalize_title(title: str) -> str:

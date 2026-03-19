@@ -6,7 +6,7 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-from mail_cleaner.models import Paper
+from larklab.models import Paper
 
 logger = logging.getLogger(__name__)
 
