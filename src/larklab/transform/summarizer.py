@@ -1,6 +1,6 @@
 import ollama
 
-from larklab.models import Paper
+from larklab.schemas import Paper
 
 DEFAULT_MODEL = "qwen3:8b"
 

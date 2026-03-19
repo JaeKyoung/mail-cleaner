@@ -4,7 +4,7 @@ from email.utils import parsedate_to_datetime
 
 from bs4 import BeautifulSoup
 
-from larklab.models import Paper
+from larklab.schemas import Paper
 
 
 def _get_html_body(payload: dict) -> str | None:

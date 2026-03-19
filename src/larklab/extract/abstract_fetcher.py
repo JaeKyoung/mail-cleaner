@@ -6,12 +6,12 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 from bs4 import BeautifulSoup
 
-from larklab.models import Paper
+from larklab.schemas import Paper
 
 logger = logging.getLogger(__name__)
 
 _HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; mail-cleaner/0.1)",
+    "User-Agent": "Mozilla/5.0 (compatible; larklab/0.1)",
     "Accept": "text/html",
 }
 

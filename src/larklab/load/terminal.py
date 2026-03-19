@@ -1,4 +1,4 @@
-from larklab.models import DailyDigest
+from larklab.schemas import DailyDigest
 
 
 def print_digest(digests: list[DailyDigest]) -> None:

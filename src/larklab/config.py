@@ -4,7 +4,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Project root: mail-cleaner/ (three levels up from this file)
+# Project root: three levels up from this file (src/larklab/config.py)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 

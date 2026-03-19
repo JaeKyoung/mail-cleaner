@@ -6,7 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from larklab.config import Config
-from larklab.models import DailyDigest, Paper
+from larklab.schemas import DailyDigest, Paper
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
