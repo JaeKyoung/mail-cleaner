@@ -14,7 +14,7 @@ Tested with 50 emails / 304 papers parsed, deduplicated to 204 unique papers acr
 - **Phase 2** (done): Send digest to Slack with AI-summarized abstracts (see [Slack setup](doc/slack-setup.md))
 - **Phase 2.5** (done): Fetch full abstracts from paper URLs (arXiv, PubMed, generic meta tags)
 - **Phase 2.7** (done): Batch-based email processing (`--batches N`)
-- **Phase 3** (done): Auto-delete processed emails (`--cleanup`)
+- **Phase 3** (done): Auto-delete processed emails (enabled by default, skip with `--no-cleanup`)
 - **Phase 4** (planned): Paper recommendation DB integration + importance scoring
 - **Future** (planned): Interactive Slack bot for on-demand digests (reuses `pipeline.py`)
 
@@ -89,8 +89,8 @@ pixi run run --batches 1
 # Print only (skip Slack)
 pixi run run --no-slack
 
-# Trash processed emails after output
-pixi run run --cleanup --verbose
+# Skip trashing processed emails (cleanup is on by default)
+pixi run run --no-cleanup
 
 # Post to different channel
 pixi run run --channel research-papers
@@ -129,7 +129,7 @@ Non-sensitive settings are configured via command-line arguments (see `pixi run 
 | `--no-fetch-abstracts` | `false` | Skip fetching full abstracts from paper URLs |
 | `--batches` | all | Process only the latest N batches |
 | `--no-slack` | `false` | Skip sending digest to Slack (print only) |
-| `--cleanup` | `false` | Trash processed emails after output |
+| `--no-cleanup` | `false` | Skip trashing processed emails after output |
 | `--verbose` | `false` | Show details of trashed emails |
 | `--channel` | `journal-club` | Slack channel to post digest |
 | `--query` | `from:scholaralerts-noreply@google.com` | Gmail search query |

@@ -137,7 +137,7 @@ pixi run run
 - Phase 2 (done): Slack digest with AI-summarized abstracts via Ollama
 - Phase 2.5 (done): Full abstract fetching from paper URLs (arXiv, PubMed, generic meta tags)
 - Phase 2.7 (done): Batch-based email processing — detect batches by 2-hour gap, process latest N only
-- Phase 3 (done): Email cleanup — trash processed emails via `--cleanup`
+- Phase 3 (done): Email cleanup — trash processed emails by default (skip with `--no-cleanup`)
 
 ## Extension points
 
