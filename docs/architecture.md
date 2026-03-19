@@ -5,11 +5,11 @@
 LarkLab follows an ETL (Extract-Transform-Load) pipeline architecture. Each stage processes data and passes it to the next.
 
 ```
-    Extract          Transform                              Load
-┌─────────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐   ┌──────────┐
-│ GmailClient │──▶│  Dedup  │──▶│ Abstract │──▶│ Summarize │──▶│  Output  │
-│(fetch+parse)│   │ (group) │   │(fetcher) │   │ (Ollama)  │   │ (Slack)  │
-└─────────────┘   └─────────┘   └──────────┘   └───────────┘   └──────────┘
+    Extract          Transform                              Database              Load
+┌─────────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐   ┌───────────┐   ┌──────────┐
+│ GmailClient │──▶│  Dedup  │──▶│ Abstract │──▶│ Summarize │──▶│ Embed +   │──▶│  Output  │
+│(fetch+parse)│   │ (group) │   │(fetcher) │   │ (Ollama)  │   │ Filter DB │   │ (Slack)  │
+└─────────────┘   └─────────┘   └──────────┘   └───────────┘   └───────────┘   └──────────┘
 ```
 
 ## Project Structure
@@ -17,9 +17,15 @@ LarkLab follows an ETL (Extract-Transform-Load) pipeline architecture. Each stag
 ```
 src/larklab/
 ├── config.py              # Configuration (credentials from .env)
-├── schemas.py              # Data schemas (Paper, DailyDigest)
-├── main.py                # CLI entry point (click)
+├── schemas.py             # Data schemas (Paper, DailyDigest)
+├── main.py                # Entry point (delegates to cli/)
 ├── pipeline.py            # Pipeline orchestration
+│
+├── cli/                   # CLI commands (click group)
+│   ├── __init__.py        # CLI group definition + command registration
+│   ├── digest.py          # digest command
+│   ├── paper.py           # db-add, db-edit, db-delete, db-list, db-search
+│   └── io.py              # db-export, db-import, db-rebuild
 │
 ├── extract/               # Extract — data collection from external sources
 │   ├── gmail_client.py    # GmailClient class (auth, fetch, parse, trash)
@@ -29,16 +35,19 @@ src/larklab/
 ├── transform/             # Transform — data processing & analysis
 │   ├── dedup.py           # Deduplication + grouping by date
 │   ├── summarizer.py      # LLM summarization (Ollama)
-│   ├── (db.py)            # ← Phase 1: sqlite-vec + embeddings
-│   └── (scorer.py)        # ← Phase 4: recommendation scoring
+│   └── (scorer.py)        # ← planned: recommendation scoring
+│
+├── database/              # Database — paper storage & similarity search
+│   ├── embedder.py        # Ollama embeddings (qwen3-embedding:8b, MRL 1024d)
+│   └── repository.py      # PaperRepository (sqlite-vec CRUD + vector search)
 │
 └── load/                  # Load — result delivery
     ├── terminal.py        # Console output
     ├── slack.py           # Slack digest posting
-    └── (bot.py)           # ← Phase 6: Slack bot
+    └── (bot.py)           # ← planned: Slack bot
 ```
 
-Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`) stay at the package root. Domain modules follow the ETL pattern: `extract/` collects raw data, `transform/` processes it, `load/` delivers results.
+Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`) stay at the package root. CLI commands are split by domain in `cli/`. Domain modules follow the ETL pattern: `extract/` collects raw data, `transform/` processes it, `load/` delivers results.
 
 ## Data Flow
 
@@ -46,18 +55,20 @@ Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`
 2. **Transform** — `transform/dedup.py` removes duplicate papers (by normalized title) and groups remaining papers by received date
 3. **Extract** — `extract/abstract_fetcher.py` visits each paper's URL to retrieve full abstracts (arXiv, PubMed, generic meta tags). Replaces snippet only when fetched abstract is longer; preserves original on failure. Rate-limited with 2s delay and retry on transient errors.
 4. **Transform** — `transform/summarizer.py` generates 3-bullet summaries (problem, technical approach, finding) of each paper's abstract using a local LLM (Ollama/qwen3:8b). Summaries are stored in `Paper.summary`.
-5. **Load** — `load/terminal.py` prints to console, `load/slack.py` sends formatted digest to Slack (summary + threaded details)
+5. **Database** — `database/embedder.py` generates embeddings for each paper (title + abstract). `database/repository.py` compares against reference papers via `sqlite-vec` cosine distance. Each paper gets a `similar_papers` list with the top 3 closest references and their similarity scores. All papers pass through to output — no filtering. If no reference papers exist, scoring is skipped.
+6. **Load** — `load/terminal.py` prints to console, `load/slack.py` sends formatted digest to Slack (summary + threaded details)
 
 ## Module Dependency Graph
 
 ```
 main.py
   ├── config.py              (no internal deps)
-  ├── extract/gmail_client   → config, models (GmailClient: auth, fetch, parse, trash)
-  ├── pipeline.py            → config, models, extract/gmail_client, extract/abstract_fetcher,
-  │                            transform/dedup, transform/summarizer
-  ├── load/terminal.py       → models
-  └── load/slack.py          → config, models
+  ├── extract/gmail_client   → config, schemas
+  ├── database/embedder      → schemas (Ollama embedding generation)
+  ├── database/repository    → schemas, database/embedder (sqlite-vec CRUD)
+  ├── pipeline.py            → config, schemas, extract/*, transform/*, database/*
+  ├── load/terminal.py       → schemas
+  └── load/slack.py          → config, schemas
 
 schemas.py                    (no internal deps)
 ```
@@ -91,18 +102,16 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 | Phase | Modules | Description |
 |-------|---------|-------------|
 | Slack output | `load/slack.py`, `transform/summarizer.py` | Sends digest with AI summaries to Slack thread |
-| Full abstracts | `extract/abstract_fetcher.py` | Fetches full abstracts after dedup, before summarization |
+| Full abstracts | `extract/abstract_fetcher.py` | Fetches full abstracts from arXiv, PubMed, Nature, and generic meta tags |
 | Email cleanup | `GmailClient.trash_emails()` | Default on (`--no-cleanup` to skip). Uses `Paper.source_email_id` to trash processed emails |
+| Paper DB | `database/repository.py`, `database/embedder.py` | sqlite-vec storage with `qwen3-embedding:8b` (MRL 1024d). Single `papers` table for reference papers |
+| Similarity scoring | `pipeline.py` | Embeds digest papers, scores against references (top 3), displays scores in output |
+| Duplicate detection | `repository.py`, `cli/paper.py` | `db-add` detects near-duplicates by embedding similarity (cosine distance < 0.2). Prompts per match: update/new/skip. Shows preview before saving |
+| Multi-source fetch | `cli/paper.py` | `db-add` fetches metadata from multiple sources: arXiv API, bioRxiv API, PubMed API (priority), CrossRef API (fallback), Nature HTML. Accepts URL or DOI |
 
 ### Planned
 
-- **Paper DB**: `transform/db.py` with `sqlite-vec` for paper storage + vector similarity search
-  - Use local embeddings via Ollama (`nomic-embed-text`) — no external APIs
-  - `Paper` dataclass should gain an `embedding: list[float] | None` field
-  - DB schema: papers table (metadata + embedding), user_interests table (reference embeddings)
-  - Keep DB operations in `db.py` only — other modules must not import sqlite directly
-- **Similarity Search + Recommendation**: `transform/scorer.py` for importance scoring based on embedding similarity
-  - Insert scoring step between `group_and_dedup()` and output
+- **Recommendation Scoring**: `transform/scorer.py` for importance scoring beyond binary similarity threshold
 - **Field Classification**: Auto-categorize papers by research area
 - **Paper Crawler**: New module in `extract/` to collect papers beyond Scholar alerts
 - **Full Paper Summarization**: PDF download + text extraction in `extract/`, full-text mode in `transform/summarizer.py`

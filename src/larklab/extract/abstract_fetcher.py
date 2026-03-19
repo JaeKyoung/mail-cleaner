@@ -89,6 +89,8 @@ def _parse_abstract(html: str, url: str) -> str | None:
         return _parse_arxiv(soup)
     if "pubmed" in url:
         return _parse_pubmed(soup)
+    if "nature.com" in url:
+        return _parse_nature(soup) or _parse_generic(soup)
     return _parse_generic(soup)
 
 
@@ -106,6 +108,15 @@ def _parse_arxiv(soup: BeautifulSoup) -> str | None:
 def _parse_pubmed(soup: BeautifulSoup) -> str | None:
     div = soup.find("div", class_="abstract-content")
     if div:
+        return div.get_text(strip=True)
+    return None
+
+
+def _parse_nature(soup: BeautifulSoup) -> str | None:
+    div = soup.select_one("#Abs1-content")
+    if div:
+        for sup in div.find_all("sup"):
+            sup.decompose()
         return div.get_text(strip=True)
     return None
 

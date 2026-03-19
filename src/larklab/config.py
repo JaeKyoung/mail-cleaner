@@ -21,6 +21,7 @@ class Config:
     slack_channel: str = ""
     ollama_model: str = ""
     use_summary: bool = True
+    db_path: str = ""
 
 
 def _resolve_path(env_var: str, default_relative: str) -> str:
@@ -41,4 +42,5 @@ def load_config() -> Config:
         ),
         token_path=_resolve_path("GMAIL_TOKEN_PATH", "credentials/token.json"),
         slack_bot_token=os.getenv("SLACK_BOT_TOKEN", ""),
+        db_path=str(PROJECT_ROOT / "data" / "larklab.db"),
     )

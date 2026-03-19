@@ -18,8 +18,8 @@ A personal research assistant that collects, organizes, and recommends papers.
 
 - **Scholar Digest** (done): Gmail fetch → parse → dedup → abstract summarization → Slack digest
 - **Email Cleanup** (done): Auto-trash processed emails after digest
-- **Paper DB** (planned): Local storage with `sqlite-vec` + Ollama embeddings
-- **Similarity Search** (planned): Find related papers by vector similarity
+- **Paper DB** (done): Local storage with `sqlite-vec` + Ollama embeddings (`qwen3-embedding:8b`, MRL 1024d)
+- **Similarity Search** (done): Score digest papers by vector similarity to reference papers (top 3 shown)
 - **Field Classification** (planned): Auto-categorize papers by research area
 - **Recommendation** (planned): Importance scoring based on user interests
 - **Full Paper Summarization** (planned): Summarize based on full paper content, not just abstract
@@ -31,7 +31,7 @@ A personal research assistant that collects, organizes, and recommends papers.
 - Python 3.12+
 - [pixi](https://pixi.sh) package manager
 - Google Cloud project with Gmail API enabled
-- [Ollama](https://ollama.ai) with `qwen3:8b` model (for abstract summarization)
+- [Ollama](https://ollama.ai) with `qwen3:8b` (summarization) and `qwen3-embedding:8b` (embeddings)
 
 ## Setup
 
@@ -72,44 +72,39 @@ pixi run digest
 
 On first run, a browser window opens for Gmail OAuth consent. Gmail scopes (`readonly`, `modify`) are requested automatically by the code — no manual scope configuration needed in Google Cloud Console. After granting access, `credentials/token.json` is saved for subsequent runs.
 
-#### CLI Options
-
-All non-sensitive settings can be customized via command-line arguments:
+#### CLI Commands
 
 ```bash
-# Use default settings
-pixi run digest
+# --- Digest ---
+pixi run digest                          # Full pipeline: fetch → summarize → score → Slack
+pixi run digest --batches 1 --no-slack   # Process latest batch, print only
+pixi run digest --no-summary             # Use raw abstract instead of AI summary
+pixi run digest --no-fetch-abstracts     # Use snippets only
+pixi run digest --no-cleanup             # Skip trashing processed emails
 
-# Fetch only recent 10 papers from last 3 days
-pixi run digest --max-results 10 --days-back 3
-
-# Use a different Ollama model (default: qwen3:8b)
-pixi run digest --model gemma2:9b
-
-# Use raw abstract instead of AI summary
-pixi run digest --no-summary
-
-# Skip fetching full abstracts (use snippets only)
-pixi run digest --no-fetch-abstracts
-
-# Process only the latest batch
-pixi run digest --batches 1
-
-# Print only (skip Slack)
-pixi run digest --no-slack
-
-# Skip trashing processed emails (cleanup is on by default)
-pixi run digest --no-cleanup
-
-# Post to different channel
-pixi run digest --channel research-papers
-
-# Combine options
-pixi run digest --days-back 7 --batches 2 --no-slack --no-summary
+# --- Paper DB ---
+pixi run db-add <url>                    # Add paper by URL (arXiv, Nature, bioRxiv, ...)
+pixi run db-add <doi>                    # Add paper by DOI (via PubMed → CrossRef)
+pixi run db-add <url> --title "..." --authors "A|B" --journal "Nature" --abstract "..."
+pixi run db-edit <id> --journal "Nature" # Edit existing paper fields
+pixi run db-delete <id>                  # Delete a paper
+pixi run db-list                         # List reference papers
+pixi run db-search "AlphaFold"           # Search by keyword + embedding similarity
+pixi run db-search --journal "Science"   # Search by journal only
+pixi run db-search "protein" --journal "Nature"  # Combine keyword + journal
+pixi run db-check                        # Check papers for missing fields
+pixi run db-check --refetch              # Re-fetch from URLs and compare
+pixi run db-export                       # Export papers to data/jsons/{id}.json
+pixi run db-export --md                  # Export as Markdown (data/papers.md)
+pixi run db-export --query "AlphaFold"   # Export matching papers only
+pixi run db-import                       # Import from data/jsons/ (replaces DB)
+pixi run db-import --input file.json     # Import from single JSON file
+pixi run db-rebuild                      # Re-generate all embeddings
 ```
 
 To see all available options:
 ```bash
+pixi run larklab --help
 pixi run digest --help
 ```
 
@@ -168,19 +163,22 @@ Each batch is posted as a separate message with threaded paper cards:
 The project follows an ETL (Extract-Transform-Load) pipeline:
 
 ```
-Gmail API → batch detect → fetch → parse → dedup → abstract fetch → summarize → Slack
+Gmail API → batch detect → fetch → parse → dedup → abstract fetch → summarize
+  → embed → similarity scoring (top 3) → Slack
 ```
 
 - **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (full abstract crawling)
 - **transform/** — `dedup` (deduplication + grouping), `summarizer` (LLM summarization via Ollama)
+- **database/** — `embedder` (Ollama embeddings, MRL truncation), `repository` (sqlite-vec CRUD + similarity search)
 - **load/** — `terminal` (console output), `slack` (Slack digest posting)
-- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `schemas.py` (data schemas), `main.py` (CLI)
+- **cli/** — `digest.py` (digest command), `paper.py` (add/edit/list), `io.py` (export/import/rebuild)
+- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `schemas.py` (data schemas), `main.py` (entry point)
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Known Limitations
 
-- **Abstract fetching coverage**: Full abstract fetching works for arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
+- **Abstract fetching coverage**: Full abstract fetching works for arXiv, PubMed, Nature, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
 
 ## Usage
 

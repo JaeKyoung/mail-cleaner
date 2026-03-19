@@ -114,7 +114,12 @@ Follow `.github/git_commit_template.md` for commit messages.
 - Gmail `send` scope is intentionally excluded — only `readonly` and `modify` are used
 - **Bot reusability**: `pipeline.py` is designed for reuse by future interactive bot — keep it pure and parameterizable
 - **Configuration approach**: `.env` for sensitive info only (tokens, credentials); CLI arguments (click) for all other settings
-- **Embedding/DB**: Use `sqlite-vec` + Ollama local embeddings only. No external vector DB services.
+- **Embedding/DB**: Use `sqlite-vec` + Ollama `qwen3-embedding:8b` (MRL truncated to 1024d, cosine distance). No external vector DB services. Single `papers` table for reference papers, `papers_vec` for embeddings.
+  - Embedding input: `title + "\n" + abstract`
+  - DB location: `data/larklab.db` (gitignored)
+  - `db-add` accepts URL or DOI. Fetch priority: arXiv API → bioRxiv API → Nature HTML → PubMed API → CrossRef API (fallback). Shows preview before saving, detects near-duplicates
+  - `db-*` commands: add, edit, delete, list, search, export, import, rebuild
+  - Digest: scores all papers against references (top 3), no filtering — all shown
 
 ## Adding dependencies
 

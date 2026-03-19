@@ -5,3 +5,11 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  - repo: local
+    hooks:
+      - id: export-papers-md
+        name: Export papers.md
+        entry: bash -c 'if [ -f data/larklab.db ]; then pixi run db-export --md && git add data/papers.md; fi'
+        language: system
+        always_run: true
+        pass_filenames: false
