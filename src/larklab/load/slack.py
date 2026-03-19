@@ -1,8 +1,10 @@
+import time
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 from larklab.config import Config
-from larklab.models import DailyDigest
+from larklab.schemas import DailyDigest
 
 
 def send_digest_to_slack(
@@ -11,81 +13,57 @@ def send_digest_to_slack(
     num_emails: int = 0,
     num_parsed: int = 0,
 ) -> None:
-    """Send the paper digest to Slack."""
+    """Send paper digests to Slack, one message per batch."""
     if not config.slack_bot_token:
         print("Slack bot token not configured, skipping Slack output.")
         return
 
     client = WebClient(token=config.slack_bot_token)
+
+    for digest in digests:
+        _send_batch(client, config.slack_channel, digest)
+
     total = sum(len(d.papers) for d in digests)
+    print(
+        f"Sent {len(digests)} batch(es) to "
+        f"#{config.slack_channel} ({total} papers total)"
+    )
 
-    # Date range
-    all_dates = [d.date for d in digests]
-    oldest = min(all_dates)
-    newest = max(all_dates)
 
-    # Build summary message
-    summary = "*Google Scholar Digest*\n"
-    summary += f"• Period: {oldest} ~ {newest}\n"
-    summary += f"• {num_emails} emails → {num_parsed} papers → {total} after dedup"
+def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
+    """Send a single batch as summary + threaded papers."""
+    count = len(digest.papers)
+    summary = f"*Scholar Digest — {digest.date}*\n• {count} papers"
 
-    # Post summary to channel
-    thread_ts = _post(client, config.slack_channel, summary)
+    thread_ts = _post(client, channel, summary)
     if not thread_ts:
         return
 
-    # Post each paper as a thread reply
-    for digest in digests:
-        for paper in digest.papers:
-            authors = ", ".join(paper.authors) if paper.authors else "Unknown"
+    for paper in digest.papers:
+        authors = ", ".join(paper.authors) if paper.authors else "Unknown"
+        text = paper.summary or paper.abstract or ""
 
-            title_line = f"<{paper.url}|*{paper.title}*>"
-            meta_parts = [authors]
-            if paper.journal:
-                meta_parts.append(f"_{paper.journal}_")
-            meta_line = " · ".join(meta_parts)
+        fields = [
+            {"title": "Authors", "value": authors, "short": False},
+        ]
 
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": title_line},
-                },
-                {
-                    "type": "context",
-                    "elements": [{"type": "mrkdwn", "text": meta_line}],
-                },
-            ]
-            if paper.summary:
-                blocks.append(
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"*[Summary]*\n{paper.summary}",
-                        },
-                    }
-                )
-            elif paper.abstract:
-                blocks.append(
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"*[Abstract]*\n{paper.abstract}",
-                        },
-                    }
-                )
-
-            fallback = f"{paper.title}\n{meta_line}\n{paper.summary}"
-            _post(
-                client,
-                config.slack_channel,
-                fallback,
-                thread_ts=thread_ts,
-                blocks=blocks,
-            )
-
-    print(f"Sent digest to #{config.slack_channel} ({total} papers in thread)")
+        attachment = {
+            "color": "#CC7D5E",
+            "fallback": paper.title,
+            "author_name": paper.journal or "Unknown",
+            "title": paper.title,
+            "title_link": paper.url,
+            "text": text,
+            "fields": fields,
+            "mrkdwn_in": ["text"],
+        }
+        _post(
+            client,
+            channel,
+            paper.title,
+            thread_ts=thread_ts,
+            attachments=[attachment],
+        )
 
 
 def _post(
@@ -93,16 +71,26 @@ def _post(
     channel: str,
     text: str,
     thread_ts: str | None = None,
-    blocks: list | None = None,
+    attachments: list | None = None,
 ) -> str | None:
-    try:
-        result = client.chat_postMessage(
-            channel=channel,
-            text=text,
-            thread_ts=thread_ts,
-            blocks=blocks,
-        )
-        return result["ts"]
-    except SlackApiError as e:
-        print(f"Slack error: {e.response['error']}")
-        return None
+    for attempt in range(3):
+        try:
+            result = client.chat_postMessage(
+                channel=channel,
+                text=text,
+                thread_ts=thread_ts,
+                attachments=attachments,
+                unfurl_links=False,
+                unfurl_media=False,
+            )
+            return result["ts"]
+        except SlackApiError as e:
+            if e.response["error"] == "ratelimited":
+                retry_after = int(e.response.headers.get("Retry-After", 1))
+                print(f"  Rate limited, waiting {retry_after}s...")
+                time.sleep(retry_after)
+            else:
+                print(f"Slack error: {e.response['error']}")
+                return None
+    print("Slack error: rate limit retries exhausted")
+    return None

@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from larklab.config import Config
 from larklab.extract.abstract_fetcher import fetch_full_abstracts
 from larklab.extract.gmail_client import GmailClient
-from larklab.models import DailyDigest
+from larklab.schemas import DailyDigest
 from larklab.transform.dedup import group_and_dedup
 from larklab.transform.summarizer import summarize_abstract
 
@@ -62,26 +62,25 @@ def run_digest_pipeline(
     actual_max = max_results if max_results is not None else config.max_results
     print(f"Fetching Scholar emails from the last {actual_days} days...")
 
+    # Always detect batches
+    msg_ids = gmail.list_message_ids(config.scholar_query, actual_max, actual_days)
+    if not msg_ids:
+        print("Found 0 emails.")
+        return [], 0, 0
+
+    print(f"Found {len(msg_ids)} emails, detecting batches...")
+    dated_msgs = gmail.fetch_internal_dates(msg_ids)
+    batches = _detect_batches(dated_msgs)
+    _print_batch_info(batches, num_batches)
+
     if num_batches is not None:
-        msg_ids = gmail.list_message_ids(config.scholar_query, actual_max, actual_days)
-        if not msg_ids:
-            print("Found 0 emails.")
-            return [], 0, 0
-        print(f"Found {len(msg_ids)} emails, detecting batches...")
-        dated_msgs = gmail.fetch_internal_dates(msg_ids)
-        batches = _detect_batches(dated_msgs)
-        _print_batch_info(batches, num_batches)
-        selected = batches[:num_batches]
-        selected_ids = [mid for batch in selected for mid, _ in batch]
-        raw_emails = gmail.fetch_full_messages(selected_ids)
-        num_emails = len(raw_emails)
-        print(f"Found {num_emails} emails.")
-        all_papers = gmail.parse_emails(raw_emails)
-    else:
-        all_papers, num_emails = gmail.fetch_and_parse(
-            config.scholar_query, actual_max, actual_days
-        )
-        print(f"Found {num_emails} emails.")
+        batches = batches[:num_batches]
+
+    selected_ids = [mid for batch in batches for mid, _ in batch]
+    raw_emails = gmail.fetch_full_messages(selected_ids)
+    num_emails = len(raw_emails)
+    print(f"Processing {num_emails} emails.")
+    all_papers = gmail.parse_emails(raw_emails)
 
     print(f"Parsed {len(all_papers)} papers total.")
 

@@ -100,6 +100,10 @@ def main(
         num_batches=batches,
     )
 
+    if not digests:
+        print("No papers found. Nothing to send.")
+        return
+
     print_digest(digests)
     if not no_slack:
         send_digest_to_slack(
