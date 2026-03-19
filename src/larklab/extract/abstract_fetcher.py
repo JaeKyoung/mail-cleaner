@@ -17,7 +17,10 @@ _HEADERS = {
 
 
 def fetch_full_abstracts(papers: list[Paper], delay: float = 2.0) -> list[Paper]:
-    """Fetch full abstracts from paper URLs. Returns new Paper list with updated abstracts."""
+    """Fetch full abstracts from paper URLs.
+
+    Returns new Paper list with updated abstracts.
+    """
     results = []
     with httpx.Client(follow_redirects=True, timeout=15, headers=_HEADERS) as client:
         for i, paper in enumerate(papers):
@@ -64,14 +67,18 @@ def _fetch_abstract(client: httpx.Client, url: str, delay: float) -> str | None:
             resp.raise_for_status()
             return _parse_abstract(resp.text, url)
         except ValueError as e:
-            logger.debug("Parse error for %s (likely binary response), skipping: %s", url, e)
+            logger.debug(
+                "Parse error for %s (likely binary response), skipping: %s", url, e
+            )
             return None
         except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as e:
             if attempt < max_retries:
                 logger.debug("Retry %d for %s: %s", attempt + 1, url, e)
                 time.sleep(delay)
             else:
-                logger.debug("Failed after %d attempts for %s: %s", max_retries + 1, url, e)
+                logger.debug(
+                    "Failed after %d attempts for %s: %s", max_retries + 1, url, e
+                )
                 return None
 
 
@@ -105,7 +112,9 @@ def _parse_pubmed(soup: BeautifulSoup) -> str | None:
 
 def _parse_generic(soup: BeautifulSoup) -> str | None:
     for name in ("citation_abstract", "og:description", "description"):
-        meta = soup.find("meta", attrs={"name": name}) or soup.find("meta", attrs={"property": name})
+        meta = soup.find("meta", attrs={"name": name}) or soup.find(
+            "meta", attrs={"property": name}
+        )
         if meta and meta.get("content"):
             return meta["content"].strip()
     return None

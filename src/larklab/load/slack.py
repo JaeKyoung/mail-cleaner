@@ -3,7 +3,6 @@ from slack_sdk.errors import SlackApiError
 
 from larklab.config import Config
 from larklab.models import DailyDigest
-from larklab.summarizer import summarize_abstract
 
 
 def send_digest_to_slack(
@@ -12,7 +11,7 @@ def send_digest_to_slack(
     num_emails: int = 0,
     num_parsed: int = 0,
 ) -> None:
-    """Send the paper digest to Slack as a single summary + threaded details."""
+    """Send the paper digest to Slack."""
     if not config.slack_bot_token:
         print("Slack bot token not configured, skipping Slack output.")
         return
@@ -26,7 +25,7 @@ def send_digest_to_slack(
     newest = max(all_dates)
 
     # Build summary message
-    summary = f"*Google Scholar Digest*\n"
+    summary = "*Google Scholar Digest*\n"
     summary += f"• Period: {oldest} ~ {newest}\n"
     summary += f"• {num_emails} emails → {num_parsed} papers → {total} after dedup"
 
@@ -35,12 +34,10 @@ def send_digest_to_slack(
     if not thread_ts:
         return
 
-    # Post each paper as a thread reply with blocks
+    # Post each paper as a thread reply
     for digest in digests:
-        for i, paper in enumerate(digest.papers):
-            print(f"  Processing paper {i + 1}/{len(digest.papers)}...")
+        for paper in digest.papers:
             authors = ", ".join(paper.authors) if paper.authors else "Unknown"
-            summary_text = summarize_abstract(paper, model=config.ollama_model) if config.use_summary else ""
 
             title_line = f"<{paper.url}|*{paper.title}*>"
             meta_parts = [authors]
@@ -58,21 +55,35 @@ def send_digest_to_slack(
                     "elements": [{"type": "mrkdwn", "text": meta_line}],
                 },
             ]
-            if summary_text:
-                blocks.append({
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*[Summary]*\n{summary_text}"},
-                })
-            else:
-                # Fallback to original abstract if summary is empty
-                if paper.abstract:
-                    blocks.append({
+            if paper.summary:
+                blocks.append(
+                    {
                         "type": "section",
-                        "text": {"type": "mrkdwn", "text": f"*[Abstract]*\n{paper.abstract}"},
-                    })
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*[Summary]*\n{paper.summary}",
+                        },
+                    }
+                )
+            elif paper.abstract:
+                blocks.append(
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"*[Abstract]*\n{paper.abstract}",
+                        },
+                    }
+                )
 
-            fallback = f"{paper.title}\n{meta_line}\n{summary_text}"
-            _post(client, config.slack_channel, fallback, thread_ts=thread_ts, blocks=blocks)
+            fallback = f"{paper.title}\n{meta_line}\n{paper.summary}"
+            _post(
+                client,
+                config.slack_channel,
+                fallback,
+                thread_ts=thread_ts,
+                blocks=blocks,
+            )
 
     print(f"Sent digest to #{config.slack_channel} ({total} papers in thread)")
 

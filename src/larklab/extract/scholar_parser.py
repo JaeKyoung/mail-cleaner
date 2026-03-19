@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 
 from bs4 import BeautifulSoup
@@ -30,7 +30,7 @@ def _get_received_at(headers: list[dict]) -> datetime:
                 return parsedate_to_datetime(header["value"])
             except (ValueError, TypeError):
                 pass
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def parse_email(raw_message: dict) -> list[Paper]:
@@ -66,7 +66,11 @@ def parse_email(raw_message: dict) -> list[Paper]:
         next_div = tag.find_next_sibling("div")
         if next_div:
             # First div after title typically contains authors
-            author_span = next_div.find("span", style=lambda s: s and "color" in s) if next_div else None
+            author_span = (
+                next_div.find("span", style=lambda s: s and "color" in s)
+                if next_div
+                else None
+            )
             if author_span:
                 authors_text = author_span.get_text(strip=True)
             else:
@@ -86,7 +90,11 @@ def parse_email(raw_message: dict) -> list[Paper]:
         else:
             authors_part = authors_text
 
-        authors = [a.strip() for a in authors_part.split(",") if a.strip()] if authors_part else []
+        authors = (
+            [a.strip() for a in authors_part.split(",") if a.strip()]
+            if authors_part
+            else []
+        )
 
         papers.append(
             Paper(

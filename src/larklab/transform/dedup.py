@@ -22,5 +22,8 @@ def group_and_dedup(papers: list[Paper]) -> list[DailyDigest]:
     for paper in unique_papers:
         by_date[paper.received_at.date()].append(paper)
 
-    digests = [DailyDigest(date=d, papers=ps) for d, ps in sorted(by_date.items(), reverse=True)]
+    digests = [
+        DailyDigest(date=d, papers=ps)
+        for d, ps in sorted(by_date.items(), reverse=True)
+    ]
     return digests

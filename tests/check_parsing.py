@@ -1,16 +1,20 @@
 """Fetch a few Scholar emails and inspect parsing results in detail."""
 
 from larklab.config import load_config
-from larklab.gmail_client import fetch_scholar_emails, get_gmail_service
-from larklab.scholar_parser import parse_email, _get_html_body
+from larklab.extract.gmail_client import GmailClient
+from larklab.extract.scholar_parser import _get_html_body, parse_email
 
 
 def main():
     config = load_config()
+    config.scholar_query = "from:scholaralerts-noreply@google.com"
     config.max_results = 3  # just a few emails for inspection
+    config.days_back = 7
 
-    service = get_gmail_service(config)
-    raw_emails = fetch_scholar_emails(service, config)
+    gmail = GmailClient(config)
+    raw_emails = gmail.fetch_emails(
+        config.scholar_query, config.max_results, config.days_back
+    )
 
     for i, email in enumerate(raw_emails):
         print(f"\n{'=' * 70}")
@@ -19,15 +23,18 @@ def main():
 
         # Show subject
         headers = email.get("payload", {}).get("headers", [])
-        subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "N/A")
+        subject = next(
+            (h["value"] for h in headers if h["name"].lower() == "subject"),
+            "N/A",
+        )
         print(f"Subject: {subject}\n")
 
         # Show raw HTML (first 500 chars)
         html = _get_html_body(email.get("payload", {}))
         if html:
-            print(f"--- Raw HTML (first 500 chars) ---")
+            print("--- Raw HTML (first 500 chars) ---")
             print(html[:500])
-            print(f"...\n")
+            print("...\n")
 
         # Show parsed results
         papers = parse_email(email)
@@ -38,7 +45,9 @@ def main():
             print(f"  Title:    {paper.title}")
             print(f"  Authors:  {paper.authors}")
             print(f"  Journal:  {paper.journal}")
-            print(f"  Abstract: {paper.abstract[:150]}{'...' if len(paper.abstract) > 150 else ''}")
+            abstract_preview = paper.abstract[:150]
+            ellipsis = "..." if len(paper.abstract) > 150 else ""
+            print(f"  Abstract: {abstract_preview}{ellipsis}")
             print(f"  URL:      {paper.url}")
             print(f"  Date:     {paper.received_at}")
             print()

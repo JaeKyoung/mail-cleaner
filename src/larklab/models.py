@@ -11,6 +11,7 @@ class Paper:
     url: str
     source_email_id: str
     received_at: datetime
+    summary: str = ""
 
 
 @dataclass
