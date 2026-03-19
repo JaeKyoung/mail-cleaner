@@ -17,7 +17,7 @@ LarkLab follows an ETL (Extract-Transform-Load) pipeline architecture. Each stag
 ```
 src/larklab/
 ├── config.py              # Configuration (credentials from .env)
-├── models.py              # Data models (Paper, DailyDigest)
+├── schemas.py              # Data schemas (Paper, DailyDigest)
 ├── main.py                # CLI entry point (click)
 ├── pipeline.py            # Pipeline orchestration
 │
@@ -38,7 +38,7 @@ src/larklab/
     └── (bot.py)           # ← Phase 6: Slack bot
 ```
 
-Foundational modules (`config`, `models`) and orchestration (`main`, `pipeline`) stay at the package root. Domain modules follow the ETL pattern: `extract/` collects raw data, `transform/` processes it, `load/` delivers results.
+Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`) stay at the package root. Domain modules follow the ETL pattern: `extract/` collects raw data, `transform/` processes it, `load/` delivers results.
 
 ## Data Flow
 
@@ -59,7 +59,7 @@ main.py
   ├── load/terminal.py       → models
   └── load/slack.py          → config, models
 
-models.py                    (no internal deps)
+schemas.py                    (no internal deps)
 ```
 
 ## Key Design Decisions

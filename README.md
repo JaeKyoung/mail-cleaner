@@ -123,28 +123,60 @@ Sensitive tokens and file paths are stored in `.env`:
 | `GMAIL_TOKEN_PATH` | `credentials/token.json` | Path to store auth token |
 | `SLACK_BOT_TOKEN` | | Slack Bot User OAuth Token ([setup](docs/slack-setup.md)) |
 
-## Pipeline
+## Example Output
+
+### Terminal
 
 ```
-Gmail API
-→ list emails
-→ [batch detect → select batches]
-→ full fetch
-→ parse HTML
-→ extract papers
-→ deduplicate
-→ group by date
-→ fetch full abstracts
-→ summarize (Ollama)
-→ Slack digest
+Fetching Scholar emails from the last 7 days...
+Found 10 emails, detecting batches...
+Found 2 batches: Batch 1 (6 emails, 03/19 07:16) | Batch 2 (4 emails, 03/17 08:30)
+Processing 10 emails.
+Parsed 25 papers total.
+
+--- 2026-03-18 (15 papers) ---
+  1. Paper Title Here
+     Authors: A Author, B Author
+     Journal: Nature, 2026
+     Abstract: Lorem ipsum dolor sit amet...
+  ...
+
+Sent 2 batch(es) to #journal-club (25 papers total)
+Trashed 10 processed emails.
 ```
 
-The project follows an ETL (Extract-Transform-Load) structure:
+### Slack
+
+Each batch is posted as a separate message with threaded paper cards:
+
+```
+*Scholar Digest — 2026-03-18*
+• 15 papers
+  ┃ Nature, 2026
+  ┃ Paper Title Here
+  ┃ Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+  ┃ Authors: A Author, B Author
+
+  ┃ Cell, 2026
+  ┃ Another Paper Title
+  ┃ Sed do eiusmod tempor incididunt ut labore et dolore...
+  ┃ Authors: C Author, D Author
+```
+
+## Architecture
+
+The project follows an ETL (Extract-Transform-Load) pipeline:
+
+```
+Gmail API → batch detect → fetch → parse → dedup → abstract fetch → summarize → Slack
+```
 
 - **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (full abstract crawling)
 - **transform/** — `dedup` (deduplication + grouping), `summarizer` (LLM summarization via Ollama)
 - **load/** — `terminal` (console output), `slack` (Slack digest posting)
-- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `models.py` (dataclasses), `main.py` (CLI)
+- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `schemas.py` (data schemas), `main.py` (CLI)
+
+See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Known Limitations
 
@@ -177,7 +209,7 @@ Logs are written to `/tmp/larklab.log`. To disable, remove the line with `cronta
 
 ### Slack Bot
 
-TODO
+See [docs/slack-setup.md](docs/slack-setup.md) for bot setup.
 
 ---
 
