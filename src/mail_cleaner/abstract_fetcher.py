@@ -63,6 +63,9 @@ def _fetch_abstract(client: httpx.Client, url: str, delay: float) -> str | None:
                 return None
             resp.raise_for_status()
             return _parse_abstract(resp.text, url)
+        except ValueError as e:
+            logger.debug("Parse error for %s (likely binary response), skipping: %s", url, e)
+            return None
         except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as e:
             if attempt < max_retries:
                 logger.debug("Retry %d for %s: %s", attempt + 1, url, e)
