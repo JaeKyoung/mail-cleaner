@@ -57,5 +57,5 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 |-------|-------------|-------------------|
 | Phase 2: Slack output (done) | `slack_output.py`, `summarizer.py` | Sends digest with AI summaries to Slack thread |
 | Phase 2.5: Full abstracts (done) | `abstract_fetcher.py` | Fetches full abstracts after dedup, before summarization |
-| Phase 3: Email cleanup | `cleanup.py` | Use `Paper.source_email_id` to delete processed emails |
+| Phase 3: Email cleanup (default on, `--no-cleanup` to skip) | `cleanup.py` | Use `Paper.source_email_id` to delete processed emails |
 | Phase 4: Scoring | `scorer.py`, `db.py` | Insert between `group_and_dedup()` and output in `main.py` |

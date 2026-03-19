@@ -49,9 +49,9 @@ from mail_cleaner.slack_output import send_digest_to_slack
     help="Skip fetching full abstracts from paper URLs",
 )
 @click.option(
-    "--cleanup",
+    "--no-cleanup",
     is_flag=True,
-    help="Trash processed emails after output",
+    help="Skip trashing processed emails after output",
 )
 @click.option(
     "--verbose",
@@ -69,7 +69,7 @@ from mail_cleaner.slack_output import send_digest_to_slack
     is_flag=True,
     help="Skip sending digest to Slack (print only)",
 )
-def main(max_results, days_back, model, no_summary, channel, query, no_fetch_abstracts, cleanup, verbose, batches, no_slack):
+def main(max_results, days_back, model, no_summary, channel, query, no_fetch_abstracts, no_cleanup, verbose, batches, no_slack):
     """Mail Cleaner - Process Google Scholar alert emails and send digest to Slack"""
     config = load_config()
     config.max_results = max_results
@@ -92,7 +92,7 @@ def main(max_results, days_back, model, no_summary, channel, query, no_fetch_abs
             num_parsed=num_parsed,
         )
 
-    if cleanup:
+    if not no_cleanup:
         trashed = trash_processed_emails(service, digests, verbose=verbose)
         print(f"Trashed {len(trashed)} processed emails.")
 
