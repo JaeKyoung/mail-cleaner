@@ -185,6 +185,29 @@ Each module has a single responsibility and a clear public interface:
 
 - **Abstract fetching coverage**: Full abstract fetching works for arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
 
+## Scheduling with Cron
+
+To run mail-cleaner automatically every day at 9:00 AM:
+
+1. Open the crontab editor:
+   ```bash
+   crontab -e
+   ```
+
+2. Add the following line:
+   ```bash
+   0 9 * * * cd /Users/jk_cssb/clawbase/apps/mail-cleaner && /Users/jk_cssb/.pixi/bin/pixi run run >> /tmp/mail-cleaner.log 2>&1
+   ```
+
+3. Verify the cron job is registered:
+   ```bash
+   crontab -l
+   ```
+
+Logs are written to `/tmp/mail-cleaner.log`. To disable, remove the line with `crontab -e`.
+
+> **Note**: On macOS, you may need to grant **Full Disk Access** to `cron` (or your terminal) in **System Settings → Privacy & Security** for Gmail token access to work.
+
 ## Using as a Submodule (OpenClaw Skill)
 
 This project can be used as a git submodule within a parent repo (e.g., [clawbase](https://github.com/JaeKyoung/clawbase)). In this setup, credentials live **outside** the submodule so it stays clean.
