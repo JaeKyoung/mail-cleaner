@@ -6,6 +6,7 @@ dependencies = [
     "google-auth-oauthlib>=1.2.1",
     "beautifulsoup4>=4.12.3",
     "python-dotenv>=1.0.1", "slack-sdk>=3.41.0,<4", "ollama>=0.6.1,<0.7", "click>=8.3.1,<9", "httpx>=0.27,<1",
+    "sqlite-vec>=0.1.6", "arxiv>=2.1,<3",
 ]
 name = "larklab"
 requires-python = ">= 3.12"
@@ -29,7 +30,16 @@ platforms = ["osx-arm64"]
 larklab = { path = ".", editable = true }
 
 [tool.pixi.tasks]
-digest = "larklab"
+digest = "larklab digest"
+db-add = { cmd = "larklab db-add", description = "Add a reference paper by URL" }
+db-edit = { cmd = "larklab db-edit", description = "Edit fields of an existing paper" }
+db-delete = { cmd = "larklab db-delete", description = "Delete a paper from the database" }
+db-check = { cmd = "larklab db-check", description = "Check papers for missing fields" }
+db-list = { cmd = "larklab db-list", description = "List papers in database" }
+db-search = { cmd = "larklab db-search", description = "Search papers by keyword or similarity" }
+db-export = { cmd = "larklab db-export", description = "Export papers to JSON or Markdown" }
+db-import = { cmd = "larklab db-import", description = "Import papers from JSON" }
+db-rebuild = { cmd = "larklab db-rebuild", description = "Re-generate all embeddings" }
 
 [tool.pixi.dependencies]
 ruff = ">=0.15.5,<0.16"

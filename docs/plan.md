@@ -2,25 +2,25 @@
 
 ## Current State
 
-Scholar alerts → parse → dedup → abstract fetch → AI summarize → Slack digest + email cleanup
+Scholar alerts → parse → dedup → abstract fetch → AI summarize → embed → similarity scoring (top 3) → Slack digest + email cleanup
 
-## Phase 1: Paper DB
+## Phase 1: Paper DB (done)
 
-Store papers locally with vector embeddings for future search and recommendation.
+Store papers locally with vector embeddings for search and recommendation.
 
-- [ ] Add `transform/db.py` — sqlite-vec for paper storage and vector search
-- [ ] Add Ollama `nomic-embed-text` embedding generation
-- [ ] Add `embedding: list[float] | None` field to `Paper` dataclass
-- [ ] DB schema: `papers` (metadata + embedding), `user_interests` (reference embeddings)
-- [ ] Insert DB save step after digest in pipeline
-- [ ] Deduplicate against DB (skip already-stored papers)
+- [x] Add `database/` module — `repository.py` (sqlite-vec CRUD), `embedder.py` (Ollama embeddings)
+- [x] Embedding: `qwen3-embedding:8b` with MRL truncation to 1024d
+- [x] Add `embedding`, `similar_papers` fields to `Paper` dataclass
+- [x] DB schema: `papers` (reference papers), `papers_vec` (embeddings)
+- [x] CLI: `db-add`, `db-edit`, `db-delete`, `db-list`, `db-search`, `db-export`, `db-import`, `db-rebuild`
 
-## Phase 2: Similarity Search
+## Phase 2: Similarity Scoring (done)
 
-Find related papers using vector similarity.
+Score digest papers by vector similarity to reference papers.
 
-- [ ] Add similarity search query to `transform/db.py`
-- [ ] CLI command to search papers by keyword/embedding
+- [x] Embed each digest paper and compute cosine distance to references
+- [x] Display top 3 related reference papers with similarity scores (terminal + Slack)
+- [x] No filtering — all papers shown, scoring is informational
 
 ## Phase 3: Field Classification
 

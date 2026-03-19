@@ -10,8 +10,11 @@ class Paper:
     abstract: str
     url: str
     source_email_id: str
-    received_at: datetime
+    received_at: datetime | None
     summary: str = ""
+    id: int | None = None
+    embedding: list[float] | None = None
+    similar_papers: list[tuple[str, float]] | None = None  # [(title, score)]
 
 
 @dataclass

@@ -1,6 +1,8 @@
 from datetime import UTC, datetime
 
 from larklab.config import Config
+from larklab.database.embedder import embed_paper
+from larklab.database.repository import PaperRepository
 from larklab.extract.abstract_fetcher import fetch_full_abstracts
 from larklab.extract.gmail_client import GmailClient
 from larklab.schemas import DailyDigest
@@ -100,4 +102,28 @@ def run_digest_pipeline(
                 print(f"  Summarizing paper {i + 1}/{len(digest.papers)}...")
                 paper.summary = summarize_abstract(paper, model=config.ollama_model)
 
+    # Compute similarity scores against reference papers
+    with PaperRepository(config.db_path) as repo:
+        refs = repo.get_papers()
+        if refs:
+            _score_similarity(digests, repo)
+        else:
+            print("No reference papers in DB — skipping similarity scoring.")
+
     return digests, num_emails, len(all_papers)
+
+
+def _score_similarity(
+    digests: list[DailyDigest],
+    repo: PaperRepository,
+) -> None:
+    """Embed papers and attach similarity score + closest reference title."""
+    all_papers = [p for d in digests for p in d.papers]
+    print(f"Embedding {len(all_papers)} papers for similarity scoring...")
+
+    for i, paper in enumerate(all_papers):
+        print(f"  Embedding paper {i + 1}/{len(all_papers)}...")
+        paper.embedding = embed_paper(paper)
+        results = repo.search_similar(paper.embedding, limit=3)
+        if results:
+            paper.similar_papers = [(ref.title, 1 - dist) for ref, dist in results]

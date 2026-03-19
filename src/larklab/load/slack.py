@@ -46,6 +46,17 @@ def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
         fields = [
             {"title": "Authors", "value": authors, "short": False},
         ]
+        if paper.similar_papers:
+            for rank, (title, score) in enumerate(paper.similar_papers, 1):
+                fields.append(
+                    {
+                        "title": (
+                            f"Top {rank} related paper (similarity: {score:.3f})"
+                        ),
+                        "value": title,
+                        "short": False,
+                    }
+                )
 
         attachment = {
             "color": "#CC7D5E",

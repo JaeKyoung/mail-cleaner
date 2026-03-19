@@ -25,4 +25,8 @@ def print_digest(digests: list[DailyDigest]) -> None:
             if paper.abstract:
                 print(f"     Abstract: {paper.abstract}")
             print(f"     URL: {paper.url}")
+            if paper.similar_papers:
+                for rank, (title, score) in enumerate(paper.similar_papers, 1):
+                    print(f"     Top {rank} related paper (similarity: {score:.3f})")
+                    print(f"     {title}")
             print()
