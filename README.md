@@ -13,7 +13,8 @@ Tested with 50 emails / 304 papers parsed, deduplicated to 204 unique papers acr
 - **Phase 1** (done): Fetch Scholar alerts → parse papers → deduplicate → console output
 - **Phase 2** (done): Send digest to Slack with AI-summarized abstracts (see [Slack setup](doc/slack-setup.md))
 - **Phase 2.5** (done): Fetch full abstracts from paper URLs (arXiv, PubMed, generic meta tags)
-- **Phase 3** (planned): Auto-delete processed emails
+- **Phase 2.7** (done): Batch-based email processing (`--batches N`)
+- **Phase 3** (done): Auto-delete processed emails (`--cleanup`)
 - **Phase 4** (planned): Paper recommendation DB integration + importance scoring
 - **Future** (planned): Interactive Slack bot for on-demand digests (reuses `pipeline.py`)
 
@@ -82,11 +83,20 @@ pixi run run --no-summary
 # Skip fetching full abstracts (use snippets only)
 pixi run run --no-fetch-abstracts
 
+# Process only the latest batch
+pixi run run --batches 1
+
+# Print only (skip Slack)
+pixi run run --no-slack
+
+# Trash processed emails after output
+pixi run run --cleanup --verbose
+
 # Post to different channel
 pixi run run --channel research-papers
 
 # Combine options
-pixi run run --max-results 20 --days-back 14 --model openclaw --channel journal-club
+pixi run run --days-back 7 --batches 2 --no-slack --no-summary
 ```
 
 To see all available options:
@@ -112,11 +122,15 @@ Non-sensitive settings are configured via command-line arguments (see `pixi run 
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--max-results` | `50` | Max emails to fetch per run |
+| `--max-results` | `200` | Max emails to fetch per run |
 | `--days-back` | `7` | How many days back to look |
 | `--model` | `qwen3:8b` | Ollama model for abstract summarization |
 | `--no-summary` | `false` | Use raw abstract instead of AI summary |
 | `--no-fetch-abstracts` | `false` | Skip fetching full abstracts from paper URLs |
+| `--batches` | all | Process only the latest N batches |
+| `--no-slack` | `false` | Skip sending digest to Slack (print only) |
+| `--cleanup` | `false` | Trash processed emails after output |
+| `--verbose` | `false` | Show details of trashed emails |
 | `--channel` | `journal-club` | Slack channel to post digest |
 | `--query` | `from:scholaralerts-noreply@google.com` | Gmail search query |
 
@@ -132,6 +146,7 @@ mail-cleaner/
 │   ├── gmail_client.py    # Gmail API authentication + email fetching
 │   ├── scholar_parser.py   # Google Scholar HTML email parsing
 │   ├── abstract_fetcher.py # Full abstract fetching (arXiv, PubMed, generic)
+│   ├── cleanup.py          # Trash processed emails via Gmail API
 │   ├── dedup.py           # Date grouping + deduplication
 │   ├── models.py          # Data classes (Paper, DailyDigest)
 │   ├── output.py          # Console output formatting
@@ -152,7 +167,7 @@ mail-cleaner/
 ## Pipeline
 
 ```
-Gmail API → fetch emails → parse HTML → extract papers → deduplicate → group by date → fetch full abstracts → summarize (Ollama) → output
+Gmail API → list emails → [batch detect → select batches] → full fetch → parse HTML → extract papers → deduplicate → group by date → fetch full abstracts → summarize (Ollama) → output
 ```
 
 Each module has a single responsibility and a clear public interface:

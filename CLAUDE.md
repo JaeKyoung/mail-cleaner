@@ -136,10 +136,11 @@ pixi run run
 - Phase 1 (done): Gmail fetch → parse → dedup → console output
 - Phase 2 (done): Slack digest with AI-summarized abstracts via Ollama
 - Phase 2.5 (done): Full abstract fetching from paper URLs (arXiv, PubMed, generic meta tags)
+- Phase 2.7 (done): Batch-based email processing — detect batches by 2-hour gap, process latest N only
+- Phase 3 (done): Email cleanup — trash processed emails via `--cleanup`
 
 ## Extension points
 
-- **Phase 3**: Add `cleanup.py`, use `Paper.source_email_id` to trash processed emails
 - **Phase 4: Vector DB + Scoring** — designed to integrate with MCP server later
   - Add `db.py` with `sqlite-vec` for paper storage + vector similarity search
   - Add `scorer.py` for importance scoring based on embedding similarity
