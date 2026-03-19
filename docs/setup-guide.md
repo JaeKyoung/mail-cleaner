@@ -56,7 +56,7 @@ This model is used to summarize paper abstracts locally.
 cp .env.example .env
 ```
 
-Edit `.env` to customize settings if needed. Defaults work fine for most users.
+Edit `.env` to add your Slack bot token if using Slack output. Non-sensitive settings are configured via CLI arguments (see `pixi run digest --help`).
 
 ## Step 5: Set Up Slack (Optional)
 
@@ -81,5 +81,5 @@ A browser window will open asking you to grant Gmail read access. After consenti
 
 ### No emails found
 - Check your Gmail — do you actually receive Google Scholar alerts?
-- Try increasing `DAYS_BACK` in `.env`
-- Verify the sender address matches `SCHOLAR_QUERY` in `.env`
+- Try increasing `--days-back` CLI option (e.g., `pixi run digest --days-back 30`)
+- Verify the sender address matches `--query` CLI option

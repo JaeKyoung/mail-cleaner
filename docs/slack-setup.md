@@ -4,7 +4,7 @@
 
 1. Go to [Slack API Apps](https://api.slack.com/apps)
 2. Click **Create New App** → **From scratch**
-3. App Name: `larklab`
+3. App Name: `lark`
 4. Select your workspace → **Create App**
 
 ## 2. Add Bot Permissions
@@ -15,29 +15,34 @@
    - `chat:write.customize` — Customize bot name and icon per message
    - `commands` — Register slash commands (for future use)
 
-## 3. Install to Workspace
+## 3. Install and Configure
 
 1. In the left sidebar, go to **Install App**
-2. Click **Install to Workspace**
-3. Review and allow the permissions
-4. Copy the **Bot User OAuth Token** (`xoxb-...`)
-
-## 4. Configure
-
-Add the token to your `.env` file:
+2. Click **Install to Workspace** and allow the permissions
+3. Copy the **Bot User OAuth Token** (`xoxb-...`) that appears
+4. Add the token to `.env`:
 
 ```bash
-SLACK_BOT_TOKEN=xoxb-your-token-here
-SLACK_CHANNEL=larklab
+echo 'SLACK_BOT_TOKEN=xoxb-your-token-here' >> .env
 ```
+
+The channel is configured via CLI argument: `pixi run digest --channel your-channel`
+
+## 4. Customize Bot Profile (optional)
+
+1. Go to **App Home** in the left sidebar
+2. Under **Your App's Presence in Slack**, click **Edit**
+3. Set display name and profile photo for the bot
 
 ## 5. Invite Bot to Channel
 
-In Slack, open the channel you want to use and type:
+Create `#journal-club` channel (or your preferred channel), then invite the bot:
 
 ```
-/invite @larklab
+/invite @lark
 ```
+
+To post to a different channel, use `--channel`: `pixi run digest --channel other-channel`
 
 ## Security
 

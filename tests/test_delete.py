@@ -3,7 +3,7 @@
 import sys
 
 from larklab.config import load_config
-from larklab.gmail_client import get_gmail_service
+from larklab.extract.gmail_client import GmailClient
 
 
 def main():
@@ -15,10 +15,10 @@ def main():
     message_id = sys.argv[1]
 
     config = load_config()
-    service = get_gmail_service(config)
+    gmail = GmailClient(config)
 
     # Trash (not permanent delete) — can be recovered from trash
-    service.users().messages().trash(userId="me", id=message_id).execute()
+    gmail._service.users().messages().trash(userId="me", id=message_id).execute()
     print(f"Moved to trash: {message_id}")
 
 

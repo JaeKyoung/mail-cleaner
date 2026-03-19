@@ -1,10 +1,10 @@
 import click
 
-from larklab.cleanup import trash_processed_emails
 from larklab.config import load_config
-from larklab.output import print_digest
+from larklab.extract.gmail_client import GmailClient
+from larklab.load.slack import send_digest_to_slack
+from larklab.load.terminal import print_digest
 from larklab.pipeline import run_digest_pipeline
-from larklab.slack_output import send_digest_to_slack
 
 
 @click.command()
@@ -69,19 +69,40 @@ from larklab.slack_output import send_digest_to_slack
     is_flag=True,
     help="Skip sending digest to Slack (print only)",
 )
-def main(max_results, days_back, model, no_summary, channel, query, no_fetch_abstracts, no_cleanup, verbose, batches, no_slack):
-    """Mail Cleaner - Process Google Scholar alert emails and send digest to Slack"""
+def main(
+    max_results,
+    days_back,
+    model,
+    no_summary,
+    channel,
+    query,
+    no_fetch_abstracts,
+    no_cleanup,
+    verbose,
+    batches,
+    no_slack,
+):
+    """LarkLab - Process Google Scholar alert emails and send digest to Slack"""
     config = load_config()
+    config.scholar_query = query
     config.max_results = max_results
     config.days_back = days_back
+    config.slack_channel = channel
     config.ollama_model = model
     config.use_summary = not no_summary
-    config.slack_channel = channel
-    config.scholar_query = query
 
-    digests, num_emails, num_parsed, service = run_digest_pipeline(
-        config, fetch_abstracts=not no_fetch_abstracts, num_batches=batches,
+    gmail = GmailClient(config)
+
+    digests, num_emails, num_parsed = run_digest_pipeline(
+        config,
+        gmail,
+        fetch_abstracts=not no_fetch_abstracts,
+        num_batches=batches,
     )
+
+    if not digests:
+        print("No papers found. Nothing to send.")
+        return
 
     print_digest(digests)
     if not no_slack:
@@ -93,7 +114,7 @@ def main(max_results, days_back, model, no_summary, channel, query, no_fetch_abs
         )
 
     if not no_cleanup:
-        trashed = trash_processed_emails(service, digests, verbose=verbose)
+        trashed = gmail.trash_emails(digests, verbose=verbose)
         print(f"Trashed {len(trashed)} processed emails.")
 
 

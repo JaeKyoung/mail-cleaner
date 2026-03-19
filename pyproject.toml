@@ -30,3 +30,24 @@ larklab = { path = ".", editable = true }
 
 [tool.pixi.tasks]
 digest = "larklab"
+
+[tool.pixi.dependencies]
+ruff = ">=0.15.5,<0.16"
+pre-commit = ">=4.5.1,<5"
+
+[tool.pixi.activation.env]
+PYTHONDONTWRITEBYTECODE = "1"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pixi.tasks.lint]
+cmd = "ruff check src/ tests/"
+
+[tool.pixi.tasks.format]
+cmd = "ruff format src/ tests/"

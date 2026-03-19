@@ -10,14 +10,14 @@ from slack_sdk.errors import SlackApiError
 def main():
     load_dotenv()
     token = os.getenv("SLACK_BOT_TOKEN")
-    channel = os.getenv("SLACK_CHANNEL", "mail-cleaner")
+    channel = os.getenv("SLACK_CHANNEL", "larklab")
 
     client = WebClient(token=token)
 
     try:
         result = client.chat_postMessage(
             channel=channel,
-            text="Hello from mail-cleaner! This is a test message.",
+            text="Hello from larklab! This is a test message.",
         )
         print(f"Sent to #{channel}, ts: {result['ts']}")
     except SlackApiError as e:

@@ -1,7 +1,7 @@
 # LarkLab
 
 <p align="center">
-  <img src="img/B.png" alt="LarkLab">
+  <img src="img/image.png" alt="LarkLab">
 </p>
 
 A personal research assistant that collects, organizes, and recommends papers.
@@ -22,6 +22,7 @@ A personal research assistant that collects, organizes, and recommends papers.
 - **Similarity Search** (planned): Find related papers by vector similarity
 - **Field Classification** (planned): Auto-categorize papers by research area
 - **Recommendation** (planned): Importance scoring based on user interests
+- **Full Paper Summarization** (planned): Summarize based on full paper content, not just abstract
 - **Paper Crawler** (planned): Collect papers beyond Scholar alerts
 - **Slack Bot** (planned): On-demand queries and digests via Slack
 
@@ -122,32 +123,60 @@ Sensitive tokens and file paths are stored in `.env`:
 | `GMAIL_TOKEN_PATH` | `credentials/token.json` | Path to store auth token |
 | `SLACK_BOT_TOKEN` | | Slack Bot User OAuth Token ([setup](docs/slack-setup.md)) |
 
-## Pipeline
+## Example Output
+
+### Terminal
 
 ```
-Gmail API
-→ list emails
-→ [batch detect → select batches]
-→ full fetch
-→ parse HTML
-→ extract papers
-→ deduplicate
-→ group by date
-→ fetch full abstracts
-→ summarize (Ollama)
-→ Slack digest
+Fetching Scholar emails from the last 7 days...
+Found 10 emails, detecting batches...
+Found 2 batches: Batch 1 (6 emails, 03/19 07:16) | Batch 2 (4 emails, 03/17 08:30)
+Processing 10 emails.
+Parsed 25 papers total.
+
+--- 2026-03-18 (15 papers) ---
+  1. Paper Title Here
+     Authors: A Author, B Author
+     Journal: Nature, 2026
+     Abstract: Lorem ipsum dolor sit amet...
+  ...
+
+Sent 2 batch(es) to #journal-club (25 papers total)
+Trashed 10 processed emails.
 ```
 
-Each module has a single responsibility and a clear public interface:
+### Slack
 
-- `pipeline.run_digest_pipeline()` → orchestrates full pipeline (fetch → parse → dedup → fetch abstracts), designed for reuse by CLI and future bot
-- `gmail_client.fetch_scholar_emails()` → `list[dict]` (raw Gmail messages)
-- `scholar_parser.parse_email()` → `list[Paper]` (parsed from one email)
-- `dedup.group_and_dedup()` → `list[DailyDigest]` (grouped + deduplicated)
-- `abstract_fetcher.fetch_full_abstracts()` → `list[Paper]` (with full abstracts from paper URLs)
-- `output.print_digest()` → console output
-- `summarizer.summarize_abstract()` → 3-bullet summary via Ollama (qwen3:8b)
-- `slack_output.send_digest_to_slack()` → Slack channel output (with summaries in thread)
+Each batch is posted as a separate message with threaded paper cards:
+
+```
+*Scholar Digest — 2026-03-18*
+• 15 papers
+  ┃ Nature, 2026
+  ┃ Paper Title Here
+  ┃ Lorem ipsum dolor sit amet, consectetur adipiscing elit...
+  ┃ Authors: A Author, B Author
+
+  ┃ Cell, 2026
+  ┃ Another Paper Title
+  ┃ Sed do eiusmod tempor incididunt ut labore et dolore...
+  ┃ Authors: C Author, D Author
+```
+
+## Architecture
+
+The project follows an ETL (Extract-Transform-Load) pipeline:
+
+```
+Gmail API → batch detect → fetch → parse → dedup → abstract fetch → summarize → Slack
+```
+
+- **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (full abstract crawling)
+- **transform/** — `dedup` (deduplication + grouping), `summarizer` (LLM summarization via Ollama)
+- **load/** — `terminal` (console output), `slack` (Slack digest posting)
+- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `schemas.py` (data schemas), `main.py` (CLI)
+
+See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Known Limitations
 
@@ -180,7 +209,7 @@ Logs are written to `/tmp/larklab.log`. To disable, remove the line with `cronta
 
 ### Slack Bot
 
-TODO
+See [docs/slack-setup.md](docs/slack-setup.md) for bot setup.
 
 ---
 

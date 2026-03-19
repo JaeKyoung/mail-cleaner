@@ -108,7 +108,7 @@ Follow `.github/git_commit_template.md` for commit messages.
 - Use pixi with `pyproject.toml` — do NOT create `requirements.txt`
 - Use dataclasses for data transfer between modules
 - Each module has one public interface — keep it that way
-- `scholar_parser.py` is fragile (depends on Google's HTML format) — isolate all parsing logic there
+- `extract/scholar_parser.py` is fragile (depends on Google's HTML format) — isolate all parsing logic there. Called via `GmailClient` facade, not directly.
 - "New articles" emails must always be included in summaries — never skip or filter them out
 - Summarizer uses Ollama (qwen3:8b) locally — do not call external APIs for summarization
 - Gmail `send` scope is intentionally excluded — only `readonly` and `modify` are used
