@@ -1,7 +1,7 @@
 # LarkLab
 
 <p align="center">
-  <img src="img/B.png" alt="LarkLab">
+  <img src="img/image.png" alt="LarkLab">
 </p>
 
 A personal research assistant that collects, organizes, and recommends papers.
@@ -22,6 +22,7 @@ A personal research assistant that collects, organizes, and recommends papers.
 - **Similarity Search** (planned): Find related papers by vector similarity
 - **Field Classification** (planned): Auto-categorize papers by research area
 - **Recommendation** (planned): Importance scoring based on user interests
+- **Full Paper Summarization** (planned): Summarize based on full paper content, not just abstract
 - **Paper Crawler** (planned): Collect papers beyond Scholar alerts
 - **Slack Bot** (planned): On-demand queries and digests via Slack
 
@@ -138,16 +139,12 @@ Gmail API
 → Slack digest
 ```
 
-Each module has a single responsibility and a clear public interface:
+The project follows an ETL (Extract-Transform-Load) structure:
 
-- `pipeline.run_digest_pipeline()` → orchestrates full pipeline (fetch → parse → dedup → fetch abstracts), designed for reuse by CLI and future bot
-- `gmail_client.fetch_scholar_emails()` → `list[dict]` (raw Gmail messages)
-- `scholar_parser.parse_email()` → `list[Paper]` (parsed from one email)
-- `dedup.group_and_dedup()` → `list[DailyDigest]` (grouped + deduplicated)
-- `abstract_fetcher.fetch_full_abstracts()` → `list[Paper]` (with full abstracts from paper URLs)
-- `output.print_digest()` → console output
-- `summarizer.summarize_abstract()` → 3-bullet summary via Ollama (qwen3:8b)
-- `slack_output.send_digest_to_slack()` → Slack channel output (with summaries in thread)
+- **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (full abstract crawling)
+- **transform/** — `dedup` (deduplication + grouping), `summarizer` (LLM summarization via Ollama)
+- **load/** — `terminal` (console output), `slack` (Slack digest posting)
+- **root** — `pipeline.py` (orchestration), `config.py` (credentials from .env), `models.py` (dataclasses), `main.py` (CLI)
 
 ## Known Limitations
 
