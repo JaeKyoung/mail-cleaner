@@ -51,6 +51,7 @@ def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
             "color": "#CC7D5E",
             "fallback": paper.title,
             "author_name": paper.journal or "Unknown",
+            "author_icon": "https://raw.githubusercontent.com/JaeKyoung/larklab/main/img/icon.png",
             "title": paper.title,
             "title_link": paper.url,
             "text": text,
