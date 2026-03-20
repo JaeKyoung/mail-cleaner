@@ -4,7 +4,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 from larklab.config import Config
-from larklab.schemas import DailyDigest
+from larklab.schemas import DailyDigest, ScholarPaper
 
 
 def send_digest_to_slack(
@@ -40,42 +40,47 @@ def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
         return
 
     for paper in digest.papers:
-        authors = ", ".join(paper.authors) if paper.authors else "Unknown"
-        text = paper.summary or paper.abstract or ""
+        _post_paper(client, channel, paper, thread_ts)
 
-        fields = [
-            {"title": "Authors", "value": authors, "short": False},
-        ]
-        if paper.similar_papers:
-            for rank, (title, score) in enumerate(paper.similar_papers, 1):
-                fields.append(
-                    {
-                        "title": (
-                            f"Top {rank} related paper (similarity: {score:.3f})"
-                        ),
-                        "value": title,
-                        "short": False,
-                    }
-                )
 
-        attachment = {
-            "color": "#CC7D5E",
-            "fallback": paper.title,
-            "author_name": paper.journal or "Unknown",
-            "author_icon": "https://raw.githubusercontent.com/JaeKyoung/larklab/main/img/icon.png",
-            "title": paper.title,
-            "title_link": paper.url,
-            "text": text,
-            "fields": fields,
-            "mrkdwn_in": ["text"],
-        }
-        _post(
-            client,
-            channel,
-            paper.title,
-            thread_ts=thread_ts,
-            attachments=[attachment],
-        )
+def _post_paper(
+    client: WebClient, channel: str, paper: ScholarPaper, thread_ts: str
+) -> None:
+    """Post a single paper as a threaded attachment."""
+    authors = ", ".join(paper.authors) if paper.authors else "Unknown"
+    text = paper.summary or paper.abstract or ""
+
+    fields = [
+        {"title": "Authors", "value": authors, "short": False},
+    ]
+    if paper.similar_papers:
+        for rank, (title, score) in enumerate(paper.similar_papers, 1):
+            fields.append(
+                {
+                    "title": (f"Top {rank} related paper (similarity: {score:.3f})"),
+                    "value": title,
+                    "short": False,
+                }
+            )
+
+    attachment = {
+        "color": "#CC7D5E",
+        "fallback": paper.title,
+        "author_name": paper.journal or "Unknown",
+        "author_icon": "https://raw.githubusercontent.com/JaeKyoung/larklab/main/img/icon.png",
+        "title": paper.title,
+        "title_link": paper.url,
+        "text": text,
+        "fields": fields,
+        "mrkdwn_in": ["text"],
+    }
+    _post(
+        client,
+        channel,
+        "",
+        thread_ts=thread_ts,
+        attachments=[attachment],
+    )
 
 
 def _post(

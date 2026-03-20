@@ -110,6 +110,12 @@ def run_digest_pipeline(
         else:
             print("No reference papers in DB — skipping similarity scoring.")
 
+    # Sort papers so same top-1 reference papers are adjacent
+    for digest in digests:
+        digest.papers.sort(
+            key=lambda p: p.similar_papers[0][0] if p.similar_papers else ""
+        )
+
     return digests, num_emails, len(all_papers)
 
 

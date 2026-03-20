@@ -6,7 +6,7 @@ import sqlite_vec
 from larklab.database.embedder import EMBED_DIM
 from larklab.schemas import Paper
 
-_PAPER_COLUMNS = "(title, authors, journal, abstract, url)"
+_PAPER_COLUMNS = "(title, authors, journal, abstract, doi)"
 _PAPER_PLACEHOLDERS = "(?, ?, ?, ?, ?)"
 _DUPLICATE_THRESHOLD = 0.2  # cosine distance — below this = potentially same paper
 
@@ -42,7 +42,7 @@ class PaperRepository:
                 authors  TEXT NOT NULL,
                 journal  TEXT NOT NULL,
                 abstract TEXT NOT NULL,
-                url      TEXT NOT NULL
+                doi      TEXT
             );
 
             CREATE VIRTUAL TABLE IF NOT EXISTS papers_vec USING vec0 (
@@ -50,6 +50,12 @@ class PaperRepository:
                 embedding FLOAT[{EMBED_DIM}] distance_metric=cosine
             );
         """)
+        # Migration: add doi / drop url
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(papers)")}
+        if "doi" not in cols:
+            self.conn.execute("ALTER TABLE papers ADD COLUMN doi TEXT")
+        if "url" in cols:
+            self.conn.execute("ALTER TABLE papers DROP COLUMN url")
 
     def exists(self, title: str) -> bool:
         row = self.conn.execute(
@@ -112,7 +118,7 @@ class PaperRepository:
         if gap_id is not None:
             self.conn.execute(
                 "INSERT INTO papers (id, title, authors, journal,"
-                " abstract, url) VALUES (?, ?, ?, ?, ?, ?)",
+                " abstract, doi) VALUES (?, ?, ?, ?, ?, ?)",
                 (gap_id, *_paper_values(paper)),
             )
             paper_id = gap_id
@@ -132,7 +138,7 @@ class PaperRepository:
         self.conn.execute(
             """UPDATE papers
                SET title = ?, authors = ?, journal = ?,
-                   abstract = ?, url = ?
+                   abstract = ?, doi = ?
                WHERE id = ?""",
             (*_paper_values(paper), paper_id),
         )
@@ -239,7 +245,7 @@ def _paper_values(paper: Paper) -> tuple:
         json.dumps(paper.authors),
         paper.journal,
         paper.abstract,
-        paper.url,
+        paper.doi,
     )
 
 
@@ -250,7 +256,5 @@ def _row_to_paper(row: sqlite3.Row) -> Paper:
         authors=json.loads(row["authors"]),
         journal=row["journal"],
         abstract=row["abstract"],
-        url=row["url"],
-        source_email_id="",
-        received_at=None,
+        doi=row["doi"],
     )

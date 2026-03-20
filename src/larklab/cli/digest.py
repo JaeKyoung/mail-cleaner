@@ -28,9 +28,9 @@ from larklab.pipeline import run_digest_pipeline
     show_default=True,
 )
 @click.option(
-    "--no-summary",
+    "--summary",
     is_flag=True,
-    help="Use raw abstract instead of AI summary",
+    help="Summarize abstracts with AI (Ollama)",
 )
 @click.option(
     "--channel",
@@ -74,7 +74,7 @@ def digest(
     max_results,
     days_back,
     model,
-    no_summary,
+    summary,
     channel,
     query,
     no_fetch_abstracts,
@@ -90,7 +90,7 @@ def digest(
     config.days_back = days_back
     config.slack_channel = channel
     config.ollama_model = model
-    config.use_summary = not no_summary
+    config.use_summary = summary
 
     gmail = GmailClient(config)
 
@@ -105,8 +105,9 @@ def digest(
         print("No papers found. Nothing to send.")
         return
 
-    print_digest(digests)
-    if not no_slack:
+    if no_slack:
+        print_digest(digests)
+    else:
         send_digest_to_slack(
             digests,
             config,

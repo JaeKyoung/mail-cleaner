@@ -1,9 +1,11 @@
 import json
+import re
 from pathlib import Path
 
 import click
 
 from larklab.cli.common import CONTEXT_SETTINGS
+from larklab.cli.paper import fetch_paper
 from larklab.config import PROJECT_ROOT, load_config
 from larklab.database.embedder import embed_paper
 from larklab.database.repository import PaperRepository
@@ -18,7 +20,7 @@ def _paper_to_dict(p: Paper) -> dict:
         "authors": p.authors,
         "journal": p.journal,
         "abstract": p.abstract,
-        "url": p.url,
+        "doi": p.doi or "",
     }
 
 
@@ -53,11 +55,10 @@ def export_papers(output, query, md):
         out_path = Path(output) if output else PROJECT_ROOT / "data" / "papers.md"
         lines = [f"# Reference Papers ({len(papers)})\n"]
         for p in papers:
-            authors_str = ", ".join(p.authors[:3])
-            if len(p.authors) > 3:
-                authors_str += " et al."
-            lines.append(f"- [{p.title}]({p.url})")
-            lines.append(f"  - {authors_str} — {p.journal}")
+            doi = p.doi or ""
+            url = f"https://doi.org/{doi}" if doi else ""
+            lines.append(f"- [{p.title}]({url})")
+            lines.append(f"  - DOI: {doi or '(none)'}")
             lines.append("")
         out_path.write_text("\n".join(lines))
         print(f"Exported {len(papers)} papers to {out_path}")
@@ -80,10 +81,21 @@ def export_papers(output, query, md):
     "input_path",
     default=None,
     type=click.Path(exists=True),
-    help="Input path: directory of JSONs or single JSON file",
+    help="Input path: directory of JSONs, single JSON, or Markdown file",
 )
-def import_papers(input_path):
-    """Import papers from JSONs (replaces all existing data)"""
+@click.option(
+    "--md",
+    is_flag=True,
+    help="Import from Markdown (default: data/papers.md)",
+)
+def import_papers(input_path, md):
+    """Import papers from JSONs or Markdown (replaces all existing data)"""
+    if md:
+        _import_from_md(
+            Path(input_path) if input_path else PROJECT_ROOT / "data" / "papers.md"
+        )
+        return
+
     in_path = Path(input_path) if input_path else _JSONS_DIR
 
     if in_path.is_dir():
@@ -109,13 +121,61 @@ def import_papers(input_path):
                 authors=item["authors"],
                 journal=item["journal"],
                 abstract=item["abstract"],
-                url=item["url"],
-                source_email_id="",
-                received_at=None,
+                doi=item.get("doi", ""),
             )
         )
 
     print(f"Read {len(papers)} papers from {in_path}")
+    _embed_and_import(papers)
+
+
+def _import_from_md(md_path: Path) -> None:
+    """Import papers from Markdown: fetch metadata via DOI/URL, then import."""
+    if not md_path.exists():
+        print(f"Not found: {md_path}")
+        return
+
+    entries = _parse_papers_md(md_path.read_text())
+    print(f"Read {len(entries)} papers from {md_path}")
+
+    papers = []
+    for i, (title, url, doi) in enumerate(entries):
+        print(f"  Fetching {i + 1}/{len(entries)}: {title[:50]}...")
+        paper = fetch_paper(doi or "", url or "")
+        if not paper.title:
+            paper.title = title
+        if not paper.doi and doi:
+            paper.doi = doi
+        papers.append(paper)
+
+    _embed_and_import(papers)
+
+
+def _parse_papers_md(text: str) -> list[tuple[str, str, str | None]]:
+    """Parse papers.md into list of (title, url, doi)."""
+    entries = []
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        # Match: - [Title](URL)
+        m = re.match(r"^- \[(.+?)\]\((.+?)\)\s*$", lines[i])
+        if m:
+            title, url = m.group(1), m.group(2)
+            doi = None
+            if i + 1 < len(lines):
+                doi_m = re.match(r"^\s+-\s+DOI:\s*(.+)$", lines[i + 1])
+                if doi_m:
+                    doi_val = doi_m.group(1).strip()
+                    if doi_val != "(none)":
+                        doi = doi_val
+                    i += 1
+            entries.append((title, url, doi))
+        i += 1
+    return entries
+
+
+def _embed_and_import(papers: list[Paper]) -> None:
+    """Generate embeddings and import papers into DB."""
     print("Generating embeddings...")
     for i, paper in enumerate(papers):
         print(f"  Embedding {i + 1}/{len(papers)}...")
