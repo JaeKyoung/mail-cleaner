@@ -117,9 +117,11 @@ Follow `.github/git_commit_template.md` for commit messages.
 - **Embedding/DB**: Use `sqlite-vec` + Ollama `qwen3-embedding:8b` (MRL truncated to 1024d, cosine distance). No external vector DB services. Single `papers` table for reference papers, `papers_vec` for embeddings.
   - Embedding input: `title + "\n" + abstract`
   - DB location: `data/larklab.db` (gitignored)
-  - `db-add` accepts URL or DOI. Fetch priority: arXiv API → bioRxiv API → Nature HTML → PubMed API → CrossRef API (fallback). Shows preview before saving, detects near-duplicates
-  - `db-*` commands: add, edit, delete, list, search, export, import, rebuild
-  - Digest: scores all papers against references (top 3), no filtering — all shown
+  - `db-add` accepts URL or DOI. Fetch priority: PubMed (DOI) → arXiv API → bioRxiv API → CrossRef (DOI) → HTML crawl (last resort). Shows preview before saving, detects near-duplicates
+  - `db-*` commands: add, edit, delete, check, list, search, export, import, rebuild
+  - `db-export --md` outputs title + URL + DOI; `db-import --md` refetches metadata via DOI/URL and rebuilds DB
+  - DOI stored as column in `papers` table; extracted from PubMed XML, `citation_doi` meta tag, or URL
+  - Digest: scores all papers against references (top 3), sorted by top-1 reference, no filtering — all shown
 
 ## Adding dependencies
 

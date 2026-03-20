@@ -17,7 +17,7 @@ LarkLab follows an ETL (Extract-Transform-Load) pipeline architecture. Each stag
 ```
 src/larklab/
 ├── config.py              # Configuration (credentials from .env)
-├── schemas.py             # Data schemas (Paper, DailyDigest)
+├── schemas.py             # Data schemas (ScholarPaper, Paper, DailyDigest)
 ├── main.py                # Entry point (delegates to cli/)
 ├── pipeline.py            # Pipeline orchestration
 │
@@ -30,7 +30,7 @@ src/larklab/
 ├── extract/               # Extract — data collection from external sources
 │   ├── gmail_client.py    # GmailClient class (auth, fetch, parse, trash)
 │   ├── scholar_parser.py  # HTML parsing (called via GmailClient facade)
-│   └── abstract_fetcher.py # Fetch full abstracts from paper URLs
+│   └── abstract_fetcher.py # Fetch full abstracts + DOI (PubMed API → HTTP fallback), extract_doi utility
 │
 ├── transform/             # Transform — data processing & analysis
 │   ├── dedup.py           # Deduplication + grouping by date
@@ -39,7 +39,7 @@ src/larklab/
 │
 ├── database/              # Database — paper storage & similarity search
 │   ├── embedder.py        # Ollama embeddings (qwen3-embedding:8b, MRL 1024d)
-│   └── repository.py      # PaperRepository (sqlite-vec CRUD + vector search)
+│   └── repository.py      # PaperRepository (sqlite-vec CRUD + vector search, DOI column)
 │
 └── load/                  # Load — result delivery
     ├── terminal.py        # Console output
@@ -51,11 +51,11 @@ Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`
 
 ## Data Flow
 
-1. **Extract** — `GmailClient` authenticates via OAuth2, fetches raw email messages, and parses them into `Paper` objects (delegates to `scholar_parser` internally)
+1. **Extract** — `GmailClient` authenticates via OAuth2, fetches raw email messages, and parses them into `ScholarPaper` objects (delegates to `scholar_parser` internally)
 2. **Transform** — `transform/dedup.py` removes duplicate papers (by normalized title) and groups remaining papers by received date
-3. **Extract** — `extract/abstract_fetcher.py` visits each paper's URL to retrieve full abstracts (arXiv, PubMed, generic meta tags). Replaces snippet only when fetched abstract is longer; preserves original on failure. Rate-limited with 2s delay and retry on transient errors.
-4. **Transform** — `transform/summarizer.py` generates 3-bullet summaries (problem, technical approach, finding) of each paper's abstract using a local LLM (Ollama/qwen3:8b). Summaries are stored in `Paper.summary`.
-5. **Database** — `database/embedder.py` generates embeddings for each paper (title + abstract). `database/repository.py` compares against reference papers via `sqlite-vec` cosine distance. Each paper gets a `similar_papers` list with the top 3 closest references and their similarity scores. All papers pass through to output — no filtering. If no reference papers exist, scoring is skipped.
+3. **Extract** — `extract/abstract_fetcher.py` fetches full abstracts via PubMed E-utilities API first (title search), then falls back to HTTP crawling (arXiv, Nature, generic meta tags). Replaces snippet only when fetched abstract is longer; preserves original on failure. HTTP fallback is rate-limited with 2s delay and retry on transient errors.
+4. **Transform** — `transform/summarizer.py` generates 3-bullet summaries (problem, technical approach, finding) of each paper's abstract using a local LLM (Ollama/qwen3:8b). Summaries are stored in `ScholarPaper.summary`.
+5. **Database** — `database/embedder.py` generates embeddings for each paper (title + abstract). `database/repository.py` compares against reference papers via `sqlite-vec` cosine distance. Each paper gets a `similar_papers` list with the top 3 closest references and their similarity scores. All papers pass through to output — no filtering. If no reference papers exist, scoring is skipped. Papers are sorted by top-1 reference so related papers appear adjacent.
 6. **Load** — `load/terminal.py` prints to console, `load/slack.py` sends formatted digest to Slack (summary + threaded details)
 
 ## Module Dependency Graph
@@ -85,7 +85,7 @@ Sensitive credentials (OAuth paths, Slack token) are loaded from `.env` via `con
 
 ### Dataclasses over dicts
 
-`Paper` and `DailyDigest` provide type safety and clear contracts between modules. A typo becomes an `AttributeError` instead of a silent `None`.
+`ScholarPaper` (digest pipeline, DOI optional), `Paper` (DB storage, DOI required), and `DailyDigest` provide type safety and clear contracts between modules. `ScholarPaper.to_paper()` converts for DB storage.
 
 ### Synchronous execution
 
@@ -102,12 +102,12 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 | Phase | Modules | Description |
 |-------|---------|-------------|
 | Slack output | `load/slack.py`, `transform/summarizer.py` | Sends digest with AI summaries to Slack thread |
-| Full abstracts | `extract/abstract_fetcher.py` | Fetches full abstracts from arXiv, PubMed, Nature, and generic meta tags |
-| Email cleanup | `GmailClient.trash_emails()` | Default on (`--no-cleanup` to skip). Uses `Paper.source_email_id` to trash processed emails |
+| Full abstracts | `extract/abstract_fetcher.py` | Fetches full abstracts via PubMed API (primary) with HTTP crawling fallback (arXiv, Nature, generic meta tags) |
+| Email cleanup | `GmailClient.trash_emails()` | Default on (`--no-cleanup` to skip). Uses `ScholarPaper.source_email_id` to trash processed emails |
 | Paper DB | `database/repository.py`, `database/embedder.py` | sqlite-vec storage with `qwen3-embedding:8b` (MRL 1024d). Single `papers` table for reference papers |
-| Similarity scoring | `pipeline.py` | Embeds digest papers, scores against references (top 3), displays scores in output |
+| Similarity scoring | `pipeline.py` | Embeds digest papers, scores against references (top 3), sorts by top-1 reference for adjacency |
 | Duplicate detection | `repository.py`, `cli/paper.py` | `db-add` detects near-duplicates by embedding similarity (cosine distance < 0.2). Prompts per match: update/new/skip. Shows preview before saving |
-| Multi-source fetch | `cli/paper.py` | `db-add` fetches metadata from multiple sources: arXiv API, bioRxiv API, PubMed API (priority), CrossRef API (fallback), Nature HTML. Accepts URL or DOI |
+| Multi-source fetch | `cli/paper.py` | `db-add` fetches metadata: PubMed (DOI) → arXiv API → bioRxiv API → CrossRef (DOI) → HTML crawl (last resort). Accepts URL or DOI |
 
 ### Planned
 
@@ -120,4 +120,4 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 
 ## Known Limitations
 
-- **Abstract fetching coverage**: Full abstract fetching supports arXiv, PubMed, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
+- **Abstract fetching coverage**: Full abstract fetching uses PubMed E-utilities API first (title search), then falls back to HTTP crawling (arXiv, Nature, generic meta tags). Papers not indexed in PubMed and hosted on JS-rendered sites may retain the original snippet.
