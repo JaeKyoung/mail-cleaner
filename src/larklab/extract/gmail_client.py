@@ -6,7 +6,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from larklab.config import Config
-from larklab.schemas import DailyDigest, Paper
+from larklab.schemas import DailyDigest, ScholarPaper
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -85,8 +85,8 @@ class GmailClient:
             for mid in msg_ids
         ]
 
-    def parse_emails(self, raw_emails: list[dict]) -> list[Paper]:
-        """Parse raw Gmail messages into Paper objects."""
+    def parse_emails(self, raw_emails: list[dict]) -> list[ScholarPaper]:
+        """Parse raw Gmail messages into ScholarPaper objects."""
         from larklab.extract.scholar_parser import parse_email
 
         papers = []
@@ -99,8 +99,8 @@ class GmailClient:
         query: str,
         max_results: int,
         days_back: int,
-    ) -> tuple[list[Paper], int]:
-        """Fetch Scholar alert emails and parse into Papers.
+    ) -> tuple[list[ScholarPaper], int]:
+        """Fetch Scholar alert emails and parse into ScholarPapers.
 
         Returns (papers, num_emails).
         """

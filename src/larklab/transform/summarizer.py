@@ -1,11 +1,11 @@
 import ollama
 
-from larklab.schemas import Paper
+from larklab.schemas import ScholarPaper
 
 DEFAULT_MODEL = "qwen3:8b"
 
 
-def summarize_abstract(paper: Paper, model: str = DEFAULT_MODEL) -> str:
+def summarize_abstract(paper: ScholarPaper, model: str = DEFAULT_MODEL) -> str:
     """Summarize a paper's abstract using a local LLM."""
     if not paper.abstract:
         return ""

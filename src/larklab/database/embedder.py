@@ -2,7 +2,7 @@ import math
 
 import ollama
 
-from larklab.schemas import Paper
+from larklab.schemas import Paper, ScholarPaper
 
 EMBED_MODEL = "qwen3-embedding:8b"
 EMBED_DIM = 1024  # MRL truncation from 4096
@@ -23,7 +23,7 @@ def generate_embedding(text: str) -> list[float]:
     return _truncate(response["embeddings"][0])
 
 
-def embed_paper(paper: Paper) -> list[float]:
+def embed_paper(paper: Paper | ScholarPaper) -> list[float]:
     """Generate embedding from paper title + abstract."""
     text = f"{paper.title}\n{paper.abstract}"
     return generate_embedding(text)

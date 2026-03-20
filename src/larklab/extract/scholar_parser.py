@@ -4,7 +4,7 @@ from email.utils import parsedate_to_datetime
 
 from bs4 import BeautifulSoup
 
-from larklab.schemas import Paper
+from larklab.schemas import ScholarPaper
 
 
 def _get_html_body(payload: dict) -> str | None:
@@ -33,8 +33,8 @@ def _get_received_at(headers: list[dict]) -> datetime:
     return datetime.now(UTC)
 
 
-def parse_email(raw_message: dict) -> list[Paper]:
-    """Parse a Google Scholar alert email into a list of Paper objects."""
+def parse_email(raw_message: dict) -> list[ScholarPaper]:
+    """Parse a Google Scholar alert email into a list of ScholarPaper objects."""
     payload = raw_message.get("payload", {})
     headers = payload.get("headers", [])
     message_id = raw_message.get("id", "")
@@ -79,7 +79,7 @@ def parse_email(raw_message: dict) -> list[Paper]:
             # Next div contains the abstract/snippet
             snippet_div = next_div.find_next_sibling("div")
             if snippet_div:
-                abstract_text = snippet_div.get_text(strip=True)
+                abstract_text = snippet_div.get_text(separator=" ", strip=True)
 
         # Split authors from journal info: "A, B\xa0- Journal Name, Year"
         journal = ""
@@ -97,7 +97,7 @@ def parse_email(raw_message: dict) -> list[Paper]:
         )
 
         papers.append(
-            Paper(
+            ScholarPaper(
                 title=title,
                 authors=authors,
                 journal=journal.strip(),

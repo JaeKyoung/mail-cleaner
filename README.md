@@ -77,8 +77,8 @@ On first run, a browser window opens for Gmail OAuth consent. Gmail scopes (`rea
 ```bash
 # --- Digest ---
 pixi run digest                          # Full pipeline: fetch → summarize → score → Slack
-pixi run digest --batches 1 --no-slack   # Process latest batch, print only
-pixi run digest --no-summary             # Use raw abstract instead of AI summary
+pixi run digest --batches 1 --no-slack   # Process latest batch, terminal output only
+pixi run digest --summary                # Summarize abstracts with AI (Ollama)
 pixi run digest --no-fetch-abstracts     # Use snippets only
 pixi run digest --no-cleanup             # Skip trashing processed emails
 
@@ -95,9 +95,10 @@ pixi run db-search "protein" --journal "Nature"  # Combine keyword + journal
 pixi run db-check                        # Check papers for missing fields
 pixi run db-check --refetch              # Re-fetch from URLs and compare
 pixi run db-export                       # Export papers to data/jsons/{id}.json
-pixi run db-export --md                  # Export as Markdown (data/papers.md)
+pixi run db-export --md                  # Export as Markdown (title + URL + DOI)
 pixi run db-export --query "AlphaFold"   # Export matching papers only
 pixi run db-import                       # Import from data/jsons/ (replaces DB)
+pixi run db-import --md                  # Import from Markdown (refetch + rebuild)
 pixi run db-import --input file.json     # Import from single JSON file
 pixi run db-rebuild                      # Re-generate all embeddings
 ```
@@ -163,11 +164,11 @@ Each batch is posted as a separate message with threaded paper cards:
 The project follows an ETL (Extract-Transform-Load) pipeline:
 
 ```
-Gmail API → batch detect → fetch → parse → dedup → abstract fetch → summarize
-  → embed → similarity scoring (top 3) → Slack
+Gmail API → batch detect → fetch → parse → dedup → abstract fetch (PubMed API → HTTP)
+  → summarize → embed → similarity scoring (top 3) → sort by reference → Slack
 ```
 
-- **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (full abstract crawling)
+- **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (PubMed API → HTTP crawling fallback)
 - **transform/** — `dedup` (deduplication + grouping), `summarizer` (LLM summarization via Ollama)
 - **database/** — `embedder` (Ollama embeddings, MRL truncation), `repository` (sqlite-vec CRUD + similarity search)
 - **load/** — `terminal` (console output), `slack` (Slack digest posting)
@@ -178,7 +179,7 @@ See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Known Limitations
 
-- **Abstract fetching coverage**: Full abstract fetching works for arXiv, PubMed, Nature, and sites with standard meta tags (`citation_abstract`, `og:description`). Some journal sites may block automated requests or use JavaScript rendering, in which case the original snippet is preserved.
+- **Abstract fetching coverage**: Full abstract fetching uses PubMed E-utilities API first (title search), then falls back to HTTP crawling (arXiv, Nature, generic meta tags). Papers not indexed in PubMed and hosted on JS-rendered sites may retain the original snippet.
 
 ## Usage
 

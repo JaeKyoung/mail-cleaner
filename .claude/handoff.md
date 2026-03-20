@@ -2,61 +2,54 @@
 
 ## Current Branch
 
-`main` (uncommitted changes — database module, CLI, code quality refactor)
+`main` (uncommitted changes, DB is empty — needs `db-import --md` after commit)
 
 ## What Was Done
 
-### Database module (`database/`)
-- `embedder.py` — `qwen3-embedding:8b`, MRL 4096→1024d, cosine distance
-- `repository.py` — PaperRepository with context manager, `get_by_id()`, `INSERT OR IGNORE` bulk ops, SQL gap-finding, cosine distance in vec0
+### Dataclass split
+- `Paper` → `ScholarPaper` (digest, DOI optional) + `Paper` (DB, DOI required)
+- `ScholarPaper.to_paper()` for converting to DB Paper
+- `Paper.url` is a `@property` derived from `doi`
 
-### CLI (`cli/`)
-- Split into `common.py`, `digest.py`, `paper.py`, `io.py`
-- All DB commands `db-*` prefixed: add, edit, delete, check, list, search, export, import, rebuild
-- `-h` flag support via shared CONTEXT_SETTINGS
-- `db-add`: accepts URL or DOI, multi-source fetch (arXiv API → bioRxiv API → HTML → PubMed API → CrossRef), preview + confirmation, duplicate detection
-- `db-export`: individual JSONs (`data/jsons/{id}.json`), `--md` for papers.md, `--query` filter
-- `db-check --refetch`: re-fetches and compares with DB
-- `db-search`: keyword + journal filter + embedding similarity
+### DOI-centric DB
+- `url` column removed from DB, `doi` is the identifier
+- `db-add` normalizes URL input to DOI URL
+- `db-edit --url` → `db-edit --doi`
 
-### Multi-source paper fetching (`cli/paper.py`)
-- arXiv: `arxiv` library API
-- bioRxiv/medRxiv: REST API with SCPLOW/footnote cleanup
-- Nature: `#Abs1-content` parser with `<sup>` removal
-- PubMed: E-utilities API (DOI → PMID → metadata), journal tag fix (`journal > title`)
-- CrossRef: fallback with JATS cleanup + editor initials removal
-- General HTML: `citation_*` meta tags + abstract_fetcher
+### Unified fetch
+- `fetch_paper(doi, url="")` — public, DOI-first. PubMed → arXiv → bioRxiv → CrossRef → HTML
+- `_fetch_from_html` parses abstract from soup directly (no redundant API calls)
+- `_fetch_from_pubmed` dead `url` param removed
+- `_fetch_from_crossref` dead `url` param removed
+- `clean_crossref_abstract()` shared helper (no duplicate cleaning logic)
 
-### Code quality (simplify review)
-- `_make_paper()` factory, `_format_authors()` helper (6x dedup)
-- Context manager on all repo usage (no more leaked connections)
-- `get_by_id()` replaces full table scan in edit/delete
-- `save_many()` uses `INSERT OR IGNORE` + single commit
-- `_next_id()` via SQL self-join instead of Python set scan
-- PubMed journal bug fixed (`soup.find("journal").find("title")`)
-- Module-level `import re`, `import warnings`
+### Digest abstract fetching
+- PubMed DOI search → PubMed title search → CrossRef DOI → HTTP crawling
+- `extract_doi()` synthesizes arXiv DOI from abs URL (`10.48550/arXiv.{id}`)
+- DOI regex strips bioRxiv suffixes (`.full.pdf`, `.full`, `.abstract`)
+- `_resolve_url` strips arXiv `.pdf` extension, bioRxiv suffixes
+- CrossRef `Accept: application/json` header override (was broken by shared `text/html` client)
 
-### Pipeline
-- Similarity scoring (top 3 references) on all digest papers, no filtering
-- Cosine distance metric in sqlite-vec
+### Other
+- `--no-summary` → `--summary`, `--no-slack` controls terminal output
+- Slack title duplication fixed
+- Scholar parser: `get_text(separator=" ")` fixes word concatenation
+- Digest papers sorted by top-1 reference
+- Clustering tried and removed (too noisy)
 
-### Docs
-- README, CLAUDE.md, architecture.md, plan.md all updated
-- Pre-commit hook generates `data/papers.md`
-
-### DB state
-- 28 reference papers (protein structure, design, language models, PPI)
-- Sources: Nature, Science, arXiv, bioRxiv, NAR, Cell Systems, PNAS, Nature Methods, Nature Biotech, Nature Micro
+### Test results (2 batches, 68 papers)
+- 73 full abstracts (67%), 37 snippets (33%)
+- Remaining snippets: Springer/Nature/ScienceDirect/ACS bot blocking + PubMed not indexed
 
 ## Next Steps
 
-1. **Test digest**: `pixi run digest --batches 1 --no-slack` — verify similarity scoring with 28 references
-2. **Commit**: Split into logical commits (database module, CLI refactor, code quality, docs)
-3. **Refactor fetch logic**: `cli/paper.py` has 5 fetch functions that should move to `extract/` — share with future crawling
-4. **Crawling**: Direct arXiv/bioRxiv fetch with threshold-based filtering (Phase 6)
-5. **Clustering**: Group papers by field using embeddings (deferred)
+1. **Commit** — split into logical commits
+2. **Rebuild DB** — `pixi run db-import --md`
+3. **Test digest** — verify arXiv DOI synthesis + CrossRef fallback improved coverage
+4. **Code structure refactor** — move `fetch_paper` + helpers from `cli/paper.py` to `extract/`
+5. **Crawling** — direct arXiv/bioRxiv fetch with threshold filtering
 
 ## Open Questions
-- Fetch logic location: `cli/paper.py` vs `extract/fetchers/` — user wants to reorganize before crawling
-- Crawling threshold: 0.8 from old bot, needs validation with qwen3-embedding + cosine distance
-- Science journal abstracts: PubMed fallback works but adds latency (2 API calls per paper)
+
+- Abstract coverage ceiling: ~33% still snippets due to bot blocking. Semantic Scholar API could help but adds another dependency.
+- `fetch_paper` lives in `cli/paper.py` but is pure logic — should move to `extract/` during refactor

@@ -1,12 +1,13 @@
 import logging
+import re
 import time
 from dataclasses import replace
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote_plus, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 
-from larklab.schemas import Paper
+from larklab.schemas import Paper, ScholarPaper
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +17,12 @@ _HEADERS = {
 }
 
 
-def fetch_full_abstracts(papers: list[Paper], delay: float = 2.0) -> list[Paper]:
+def fetch_full_abstracts[P: (Paper, ScholarPaper)](
+    papers: list[P], delay: float = 2.0
+) -> list[P]:
     """Fetch full abstracts from paper URLs.
 
+    Tries PubMed E-utilities API first, falls back to HTTP crawling.
     Returns new Paper list with updated abstracts.
     """
     results = []
@@ -27,19 +31,38 @@ def fetch_full_abstracts(papers: list[Paper], delay: float = 2.0) -> list[Paper]
             if i > 0:
                 time.sleep(delay)
             url = _resolve_url(paper.url)
-            if not url:
-                results.append(paper)
-                continue
-            abstract = _fetch_abstract(client, url, delay)
+            doi = extract_doi(url) if url else None
+            # 1. PubMed: DOI first, then title fallback
+            abstract, pubmed_doi = None, None
+            if doi:
+                abstract, pubmed_doi = _fetch_abstract_pubmed(client, f"{doi}[doi]")
+            if not abstract or len(abstract) <= len(paper.abstract):
+                alt_abstract, alt_doi = _fetch_abstract_pubmed(
+                    client, f"{paper.title}[Title]"
+                )
+                if alt_abstract and (not abstract or len(alt_abstract) > len(abstract)):
+                    abstract = alt_abstract
+                    if not doi:
+                        doi = alt_doi
+            doi = doi or pubmed_doi
+            # 2. CrossRef (DOI)
+            if doi and (not abstract or len(abstract) <= len(paper.abstract)):
+                abstract = _fetch_abstract_crossref(client, doi) or abstract
+            # 3. HTTP crawling fallback
+            if not abstract or len(abstract) <= len(paper.abstract):
+                if url:
+                    abstract = _fetch_abstract(client, url, delay)
+            updates = {}
             if abstract and len(abstract) > len(paper.abstract):
-                results.append(replace(paper, abstract=abstract))
-            else:
-                results.append(paper)
+                updates["abstract"] = abstract
+            if doi and not paper.doi:
+                updates["doi"] = doi
+            results.append(replace(paper, **updates) if updates else paper)
     return results
 
 
 def _resolve_url(url: str) -> str | None:
-    """Extract real URL from Google Scholar redirect, normalize arxiv URLs."""
+    """Extract real URL from Google Scholar redirect, normalize to abstract pages."""
     if not url:
         return None
     parsed = urlparse(url)
@@ -50,8 +73,16 @@ def _resolve_url(url: str) -> str | None:
             url = real
             parsed = urlparse(url)
     # arxiv: /pdf/ID -> /abs/ID
-    if parsed.hostname and "arxiv.org" in parsed.hostname and "/pdf/" in parsed.path:
-        url = url.replace("/pdf/", "/abs/", 1)
+    if parsed.hostname and "arxiv.org" in parsed.hostname:
+        if "/pdf/" in parsed.path:
+            url = url.replace("/pdf/", "/abs/", 1)
+        # Strip .pdf extension if present
+        url = re.sub(r"\.pdf$", "", url)
+    # bioRxiv/medRxiv: strip .full.pdf, .full, .abstract suffixes
+    if parsed.hostname and (
+        "biorxiv.org" in parsed.hostname or "medrxiv.org" in parsed.hostname
+    ):
+        url = re.sub(r"\.(full(\.pdf)?|abstract|pdf)$", "", url)
     return url
 
 
@@ -129,3 +160,96 @@ def _parse_generic(soup: BeautifulSoup) -> str | None:
         if meta and meta.get("content"):
             return meta["content"].strip()
     return None
+
+
+def _fetch_abstract_pubmed(
+    client: httpx.Client, query: str
+) -> tuple[str | None, str | None]:
+    """Fetch abstract and DOI from PubMed.
+
+    Query should include field tag (e.g. [Title], [doi]).
+    """
+    if not query:
+        return None, None
+    ids = pubmed_esearch(client, query)
+    if not ids:
+        return None, None
+    soup = pubmed_efetch(client, ids[0])
+    if not soup:
+        return None, None
+    abstract_tag = soup.find("abstracttext")
+    abstract = abstract_tag.text if abstract_tag else None
+    doi = None
+    doi_tag = soup.find("articleid", idtype="doi")
+    if doi_tag:
+        doi = doi_tag.text
+    return abstract, doi
+
+
+def clean_crossref_abstract(raw: str) -> str:
+    """Clean CrossRef abstract: strip HTML tags, 'Abstract' prefix, whitespace."""
+    text = re.sub(r"<[^>]+>", "", raw)
+    text = re.sub(r"^\s*Abstract\s*", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\s*—[A-Z]{1,4}\s*$", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _fetch_abstract_crossref(client: httpx.Client, doi: str) -> str | None:
+    """Fetch abstract from CrossRef API."""
+    try:
+        resp = client.get(
+            f"https://api.crossref.org/works/{doi}",
+            headers={"Accept": "application/json"},
+            timeout=15,
+        )
+        if resp.status_code != 200:
+            return None
+        abstract = clean_crossref_abstract(resp.json()["message"].get("abstract", ""))
+        return abstract or None
+    except Exception:
+        logger.debug("CrossRef failed for DOI: %s", doi)
+        return None
+
+
+def extract_doi(url: str) -> str | None:
+    """Extract DOI from a URL. Synthesizes arXiv DOI from abs URL."""
+    # arXiv abs URL → synthetic DOI
+    arxiv_match = re.search(r"arxiv\.org/abs/(\d{4}\.\d{4,5})", url)
+    if arxiv_match:
+        return f"10.48550/arXiv.{arxiv_match.group(1)}"
+    match = re.search(r"(10\.\d{4,}/[^\s?#]+)", url)
+    if not match:
+        return None
+    doi = match.group(1).rstrip("/")
+    # Remove bioRxiv/medRxiv URL suffixes (.full.pdf, .full, .abstract, etc.)
+    doi = re.sub(r"\.(full(\.pdf)?|abstract|pdf)$", "", doi)
+    return doi
+
+
+def pubmed_esearch(client: httpx.Client, term: str) -> list[str]:
+    """Search PubMed and return list of PMIDs."""
+    url = (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+        f"?db=pubmed&term={quote_plus(term)}&retmode=json"
+    )
+    try:
+        resp = client.get(url)
+        return resp.json()["esearchresult"]["idlist"]
+    except Exception:
+        logger.debug("PubMed esearch failed for term: %s", term)
+        return []
+
+
+def pubmed_efetch(client: httpx.Client, pmid: str) -> BeautifulSoup | None:
+    """Fetch PubMed article XML and return parsed soup."""
+    url = (
+        "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+        f"?db=pubmed&id={pmid}&rettype=abstract&retmode=xml"
+    )
+    try:
+        resp = client.get(url)
+        return BeautifulSoup(resp.text, "html.parser")
+    except Exception:
+        logger.debug("PubMed efetch failed for PMID: %s", pmid)
+        return None
