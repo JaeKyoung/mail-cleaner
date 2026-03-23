@@ -200,7 +200,9 @@ See [docs/architecture.md](docs/architecture.md) for details.
 
 ## Usage
 
-### Scheduling with Cron
+### Scheduling
+
+#### Option 1: cron
 
 To run larklab automatically every day at 9:00 AM:
 
@@ -211,7 +213,7 @@ To run larklab automatically every day at 9:00 AM:
 
 2. Add the following line:
    ```bash
-   0 9 * * * cd /Users/jk_cssb/clawbase/apps/larklab && /Users/jk_cssb/.pixi/bin/pixi run digest >> /tmp/larklab.log 2>&1
+   0 9 * * * cd /Users/jk_cssb/larklab && /Users/jk_cssb/.pixi/bin/pixi run digest >> /tmp/larklab.log 2>&1
    ```
 
 3. Verify the cron job is registered:
@@ -222,6 +224,66 @@ To run larklab automatically every day at 9:00 AM:
 Logs are written to `/tmp/larklab.log`. To disable, remove the line with `crontab -e`.
 
 > **Note**: On macOS, you may need to grant **Full Disk Access** to `cron` (or your terminal) in **System Settings → Privacy & Security** for Gmail token access to work.
+
+> **Warning**: cron skips jobs when the machine is asleep or powered off, and does not retry them later. Use launchd below if you want missed jobs to run automatically on wake.
+
+#### Option 2: launchd (recommended for macOS)
+
+macOS native scheduler. Unlike cron, launchd automatically runs missed jobs when the machine wakes up.
+
+1. Remove existing cron job if present:
+   ```bash
+   crontab -e  # delete the larklab line
+   ```
+
+2. Create the plist file:
+   ```bash
+   cat > ~/Library/LaunchAgents/com.larklab.digest.plist << 'EOF'
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>Label</key>
+       <string>com.larklab.digest</string>
+       <key>ProgramArguments</key>
+       <array>
+           <string>/Users/jk_cssb/.pixi/bin/pixi</string>
+           <string>run</string>
+           <string>digest</string>
+       </array>
+       <key>WorkingDirectory</key>
+       <string>/Users/jk_cssb/larklab</string>
+       <key>StartCalendarInterval</key>
+       <dict>
+           <key>Hour</key>
+           <integer>9</integer>
+           <key>Minute</key>
+           <integer>0</integer>
+       </dict>
+       <key>StandardOutPath</key>
+       <string>/tmp/larklab.log</string>
+       <key>StandardErrorPath</key>
+       <string>/tmp/larklab.log</string>
+   </dict>
+   </plist>
+   EOF
+   ```
+
+3. Load and activate:
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.larklab.digest.plist
+   ```
+
+4. Verify registration:
+   ```bash
+   launchctl list | grep larklab
+   ```
+
+To disable:
+```bash
+launchctl unload ~/Library/LaunchAgents/com.larklab.digest.plist
+rm ~/Library/LaunchAgents/com.larklab.digest.plist
+```
 
 ### Slack Bot
 
