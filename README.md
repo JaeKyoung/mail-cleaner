@@ -58,6 +58,12 @@ mv ~/Downloads/client_secret_*.json credentials/credentials.json
 cp .env.example .env
 ```
 
+Edit `.env` and add your Slack Bot token:
+```
+SLACK_BOT_TOKEN=xoxb-your-token-here
+```
+See [docs/slack-setup.md](docs/slack-setup.md) for setup details.
+
 ### 3. Install dependencies
 
 ```bash
@@ -130,11 +136,24 @@ Found 2 batches: Batch 1 (6 emails, 03/19 07:16) | Batch 2 (4 emails, 03/17 08:3
 Processing 10 emails.
 Parsed 25 papers total.
 
+============================================================
+  Google Scholar Digest — 25 papers, 2 days
+============================================================
+
 --- 2026-03-18 (15 papers) ---
+
   1. Paper Title Here
      Authors: A Author, B Author
      Journal: Nature, 2026
      Abstract: Lorem ipsum dolor sit amet...
+     URL: https://doi.org/10.1234/example
+     Top 1 related paper (similarity: 0.823)
+     Reference Paper Alpha
+     Top 2 related paper (similarity: 0.756)
+     Reference Paper Beta
+     Top 3 related paper (similarity: 0.691)
+     Reference Paper Gamma
+
   ...
 
 Sent 2 batch(es) to #journal-club (25 papers total)
@@ -143,7 +162,7 @@ Trashed 10 processed emails.
 
 ### Slack
 
-Each batch is posted as a separate message with threaded paper cards:
+Each batch is posted as a summary message with threaded paper cards (attachments):
 
 ```
 *Scholar Digest — 2026-03-18*
@@ -152,11 +171,9 @@ Each batch is posted as a separate message with threaded paper cards:
   ┃ Paper Title Here
   ┃ Lorem ipsum dolor sit amet, consectetur adipiscing elit...
   ┃ Authors: A Author, B Author
-
-  ┃ Cell, 2026
-  ┃ Another Paper Title
-  ┃ Sed do eiusmod tempor incididunt ut labore et dolore...
-  ┃ Authors: C Author, D Author
+  ┃ Top 1 related paper (similarity: 0.823): Reference Paper Alpha
+  ┃ Top 2 related paper (similarity: 0.756): Reference Paper Beta
+  ┃ Top 3 related paper (similarity: 0.691): Reference Paper Gamma
 ```
 
 ## Architecture
