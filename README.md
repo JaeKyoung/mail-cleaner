@@ -194,6 +194,17 @@ Gmail API → batch detect → fetch → parse → dedup → abstract fetch (Pub
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
+## Development
+
+After cloning, install pre-commit hooks:
+
+```bash
+pixi install
+pixi run pre-commit install
+```
+
+This enables automatic linting (ruff) and `papers.md` export on every commit.
+
 ## Known Limitations
 
 - **Abstract fetching coverage**: Full abstract fetching uses PubMed E-utilities API first (title search), then falls back to HTTP crawling (arXiv, Nature, generic meta tags). Papers not indexed in PubMed and hosted on JS-rendered sites may retain the original snippet.

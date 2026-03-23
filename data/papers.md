@@ -1,4 +1,4 @@
-# Reference Papers (29)
+# Reference Papers (35)
 
 - [Accurate structure prediction of biomolecular interactions with AlphaFold 3.](https://doi.org/10.1038/s41586-024-07487-w)
   - DOI: 10.1038/s41586-024-07487-w
@@ -86,3 +86,21 @@
 
 - [Multistate and functional protein design using RoseTTAFold sequence space diffusion.](https://doi.org/10.1038/s41587-024-02395-w)
   - DOI: 10.1038/s41587-024-02395-w
+
+- [Protein Diffusion Models as Statistical Potentials](https://doi.org/10.64898/2025.12.09.693073)
+  - DOI: 10.64898/2025.12.09.693073
+
+- [BoltzGen: Toward Universal Binder Design.](https://doi.org/10.1101/2025.11.20.689494)
+  - DOI: 10.1101/2025.11.20.689494
+
+- [Self-Supervised Learning from Images with a Joint-Embedding Predictive Architecture](https://doi.org/10.48550/arXiv.2301.08243)
+  - DOI: 10.48550/arXiv.2301.08243
+
+- [Emerging Properties in Self-Supervised Vision Transformers](https://doi.org/10.48550/arXiv.2104.14294)
+  - DOI: 10.48550/arXiv.2104.14294
+
+- [DINOv2: Learning Robust Visual Features without Supervision](https://doi.org/10.48550/arXiv.2304.07193)
+  - DOI: 10.48550/arXiv.2304.07193
+
+- [DINOv3](https://doi.org/10.48550/arXiv.2508.10104)
+  - DOI: 10.48550/arXiv.2508.10104

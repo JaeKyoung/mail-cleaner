@@ -30,34 +30,38 @@ def fetch_full_abstracts[P: (Paper, ScholarPaper)](
         for i, paper in enumerate(papers):
             if i > 0:
                 time.sleep(delay)
-            url = _resolve_url(paper.url)
-            doi = extract_doi(url) if url else None
-            # 1. PubMed: DOI first, then title fallback
-            abstract, pubmed_doi = None, None
-            if doi:
-                abstract, pubmed_doi = _fetch_abstract_pubmed(client, f"{doi}[doi]")
-            if not abstract or len(abstract) <= len(paper.abstract):
-                alt_abstract, alt_doi = _fetch_abstract_pubmed(
-                    client, f"{paper.title}[Title]"
-                )
-                if alt_abstract and (not abstract or len(alt_abstract) > len(abstract)):
-                    abstract = alt_abstract
-                    if not doi:
-                        doi = alt_doi
-            doi = doi or pubmed_doi
-            # 2. CrossRef (DOI)
-            if doi and (not abstract or len(abstract) <= len(paper.abstract)):
-                abstract = _fetch_abstract_crossref(client, doi) or abstract
-            # 3. HTTP crawling fallback
-            if not abstract or len(abstract) <= len(paper.abstract):
-                if url:
-                    abstract = _fetch_abstract(client, url, delay)
-            updates = {}
-            if abstract and len(abstract) > len(paper.abstract):
-                updates["abstract"] = abstract
-            if doi and not paper.doi:
-                updates["doi"] = doi
-            results.append(replace(paper, **updates) if updates else paper)
+            try:
+                url = _resolve_url(paper.url)
+                doi = extract_doi(url) if url else None
+                # 1. PubMed: DOI first, then title fallback
+                abstract, pubmed_doi = None, None
+                if doi:
+                    abstract, pubmed_doi = _fetch_abstract_pubmed(client, f"{doi}[doi]")
+                if not abstract or len(abstract) <= len(paper.abstract):
+                    alt_abstract, alt_doi = _fetch_abstract_pubmed(
+                        client, f"{paper.title}[Title]"
+                    )
+                    if alt_abstract and (not abstract or len(alt_abstract) > len(abstract)):
+                        abstract = alt_abstract
+                        if not doi:
+                            doi = alt_doi
+                doi = doi or pubmed_doi
+                # 2. CrossRef (DOI)
+                if doi and (not abstract or len(abstract) <= len(paper.abstract)):
+                    abstract = _fetch_abstract_crossref(client, doi) or abstract
+                # 3. HTTP crawling fallback
+                if not abstract or len(abstract) <= len(paper.abstract):
+                    if url:
+                        abstract = _fetch_abstract(client, url, delay)
+                updates = {}
+                if abstract and len(abstract) > len(paper.abstract):
+                    updates["abstract"] = abstract
+                if doi and not paper.doi:
+                    updates["doi"] = doi
+                results.append(replace(paper, **updates) if updates else paper)
+            except Exception:
+                logger.debug("Failed to fetch abstract for %s, skipping", paper.title)
+                results.append(paper)
     return results
 
 
@@ -102,7 +106,7 @@ def _fetch_abstract(client: httpx.Client, url: str, delay: float) -> str | None:
                 "Parse error for %s (likely binary response), skipping: %s", url, e
             )
             return None
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError) as e:
+        except (httpx.TimeoutException, httpx.NetworkError, httpx.ProtocolError, httpx.HTTPStatusError) as e:
             if attempt < max_retries:
                 logger.debug("Retry %d for %s: %s", attempt + 1, url, e)
                 time.sleep(delay)
