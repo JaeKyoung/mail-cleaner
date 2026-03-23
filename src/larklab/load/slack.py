@@ -39,7 +39,9 @@ def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
     if not thread_ts:
         return
 
-    for paper in digest.papers:
+    for i, paper in enumerate(digest.papers):
+        if i > 0:
+            time.sleep(1)
         _post_paper(client, channel, paper, thread_ts)
 
 

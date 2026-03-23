@@ -1,6 +1,9 @@
 from collections import defaultdict
+from datetime import datetime
 
 from larklab.schemas import DailyDigest, ScholarPaper
+
+_LOCAL_TZ = datetime.now().astimezone().tzinfo
 
 
 def _normalize_title(title: str) -> str:
@@ -20,7 +23,8 @@ def group_and_dedup(papers: list[ScholarPaper]) -> list[DailyDigest]:
 
     by_date: dict[str, list[ScholarPaper]] = defaultdict(list)
     for paper in unique_papers:
-        by_date[paper.received_at.date()].append(paper)
+        local_date = paper.received_at.astimezone(_LOCAL_TZ).date()
+        by_date[local_date].append(paper)
 
     digests = [
         DailyDigest(date=d, papers=ps)
