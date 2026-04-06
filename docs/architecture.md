@@ -6,10 +6,10 @@ LarkLab follows an ETL (Extract-Transform-Load) pipeline architecture. Each stag
 
 ```
     Extract          Transform                              Database              Load
-┌─────────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐   ┌───────────┐   ┌──────────┐
-│ GmailClient │──▶│  Dedup  │──▶│ Abstract │──▶│ Summarize │──▶│ Embed +   │──▶│  Output  │
-│(fetch+parse)│   │ (group) │   │(fetcher) │   │ (Ollama)  │   │ Filter DB │   │ (Slack)  │
-└─────────────┘   └─────────┘   └──────────┘   └───────────┘   └───────────┘   └──────────┘
+┌─────────────┐   ┌─────────┐   ┌──────────┐   ┌───────────┐   ┌───────────┐   ┌─────────────┐
+│ GmailClient │──▶│  Dedup  │──▶│ Abstract │──▶│ Summarize │──▶│ Embed +   │──▶│   Output    │
+│(fetch+parse)│   │ (group) │   │(fetcher) │   │ (Ollama)  │   │ Filter DB │   │(Slack/JSON) │
+└─────────────┘   └─────────┘   └──────────┘   └───────────┘   └───────────┘   └─────────────┘
 ```
 
 ## Project Structure
@@ -56,7 +56,7 @@ Foundational modules (`config`, `schemas`) and orchestration (`main`, `pipeline`
 3. **Extract** — `extract/abstract_fetcher.py` fetches full abstracts via PubMed E-utilities API first (title search), then falls back to HTTP crawling (arXiv, Nature, generic meta tags). Replaces snippet only when fetched abstract is longer; preserves original on failure. HTTP fallback is rate-limited with 2s delay and retry on transient errors.
 4. **Transform** — `transform/summarizer.py` generates 3-bullet summaries (problem, technical approach, finding) of each paper's abstract using a local LLM (Ollama/qwen3:8b). Summaries are stored in `ScholarPaper.summary`.
 5. **Database** — `database/embedder.py` generates embeddings for each paper (title + abstract). `database/repository.py` compares against reference papers via `sqlite-vec` cosine distance. Each paper gets a `similar_papers` list with the top 3 closest references and their similarity scores. All papers pass through to output — no filtering. If no reference papers exist, scoring is skipped. Papers are sorted by top-1 reference so related papers appear adjacent.
-6. **Load** — `load/terminal.py` prints to console, `load/slack.py` sends formatted digest to Slack (summary + threaded details)
+6. **Load** — `load/terminal.py` prints to console, `load/slack.py` sends formatted digest to Slack (summary + threaded details). `--output-json` exports the full digest as JSON for downstream automation (e.g., Claude Code scheduled agents)
 
 ## Module Dependency Graph
 
@@ -106,6 +106,7 @@ Google Scholar's HTML format will change eventually. All parsing logic is isolat
 | Email cleanup | `GmailClient.trash_emails()` | Default on (`--no-cleanup` to skip). Uses `ScholarPaper.source_email_id` to trash processed emails |
 | Paper DB | `database/repository.py`, `database/embedder.py` | sqlite-vec storage with `qwen3-embedding:8b` (MRL 1024d). Single `papers` table for reference papers |
 | Similarity scoring | `pipeline.py` | Embeds digest papers, scores against references (top 3), sorts by top-1 reference for adjacency |
+| JSON export | `cli/digest.py` | `--output-json` saves digest results as JSON for scheduled agent post-processing |
 | Duplicate detection | `repository.py`, `cli/paper.py` | `db-add` detects near-duplicates by embedding similarity (cosine distance < 0.2). Prompts per match: update/new/skip. Shows preview before saving |
 | Multi-source fetch | `cli/paper.py` | `db-add` fetches metadata: PubMed (DOI) → arXiv API → bioRxiv API → CrossRef (DOI) → HTML crawl (last resort). Accepts URL or DOI |
 

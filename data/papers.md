@@ -1,4 +1,4 @@
-# Reference Papers (35)
+# Reference Papers (36)
 
 - [Accurate structure prediction of biomolecular interactions with AlphaFold 3.](https://doi.org/10.1038/s41586-024-07487-w)
   - DOI: 10.1038/s41586-024-07487-w
@@ -104,3 +104,6 @@
 
 - [DINOv3](https://doi.org/10.48550/arXiv.2508.10104)
   - DOI: 10.48550/arXiv.2508.10104
+
+- [Programming Biomolecular Interactions with All-Atom Generative Model](https://doi.org/10.64898/2026.03.12.711044)
+  - DOI: 10.64898/2026.03.12.711044

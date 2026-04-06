@@ -70,6 +70,12 @@ from larklab.pipeline import run_digest_pipeline
     is_flag=True,
     help="Skip sending digest to Slack (print only)",
 )
+@click.option(
+    "--output-json",
+    default=None,
+    type=click.Path(),
+    help="Also write digest results as JSON to this path",
+)
 def digest(
     max_results,
     days_back,
@@ -82,6 +88,7 @@ def digest(
     verbose,
     batches,
     no_slack,
+    output_json,
 ):
     """Fetch Scholar emails, summarize, and send digest to Slack"""
     config = load_config()
@@ -104,6 +111,42 @@ def digest(
     if not digests:
         print("No papers found. Nothing to send.")
         return
+
+    if output_json:
+        import json
+        from dataclasses import fields
+        from datetime import datetime
+        from pathlib import Path
+
+        _EXCLUDE = {"embedding", "source_email_id"}
+
+        def _paper_dict(p):
+            d = {}
+            for f in fields(p):
+                if f.name in _EXCLUDE:
+                    continue
+                v = getattr(p, f.name)
+                if isinstance(v, datetime):
+                    v = v.isoformat()
+                d[f.name] = v
+            return d
+
+        payload = {
+            "generated_at": datetime.now().isoformat(),
+            "num_emails": num_emails,
+            "num_parsed": num_parsed,
+            "digests": [
+                {
+                    "date": d.date.isoformat(),
+                    "papers": [_paper_dict(p) for p in d.papers],
+                }
+                for d in digests
+            ],
+        }
+        Path(output_json).write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2, default=str)
+        )
+        print(f"Wrote JSON digest to {output_json}")
 
     if no_slack:
         print_digest(digests)

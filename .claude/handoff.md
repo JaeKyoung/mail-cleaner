@@ -1,53 +1,35 @@
-# Handoff — 2026-03-20
+# Handoff — 2026-04-06
 
 ## Current Branch
 
-`main` (uncommitted changes, DB is empty — needs `db-import --md` after commit)
+`feat/output-json` (pushed, PR pending on GitHub web)
 
 ## What Was Done
 
-### Dataclass split
-- `Paper` → `ScholarPaper` (digest, DOI optional) + `Paper` (DB, DOI required)
-- `ScholarPaper.to_paper()` for converting to DB Paper
-- `Paper.url` is a `@property` derived from `doi`
+### Pipeline resilience (merged as #11)
+- Added `httpx.ProtocolError` to retry exceptions in abstract fetcher (`RemoteProtocolError` was crashing the pipeline)
+- Wrapped per-paper abstract fetch in try/except so one failure doesn't crash all papers
+- Added 1s delay between Slack thread messages to prevent rate limiting / "high volume" UI warning
+- Fixed date grouping in dedup: now uses local timezone (KST) instead of UTC, fixing emails grouped under wrong date
 
-### DOI-centric DB
-- `url` column removed from DB, `doi` is the identifier
-- `db-add` normalizes URL input to DOI URL
-- `db-edit --url` → `db-edit --doi`
-
-### Unified fetch
-- `fetch_paper(doi, url="")` — public, DOI-first. PubMed → arXiv → bioRxiv → CrossRef → HTML
-- `_fetch_from_html` parses abstract from soup directly (no redundant API calls)
-- `_fetch_from_pubmed` dead `url` param removed
-- `_fetch_from_crossref` dead `url` param removed
-- `clean_crossref_abstract()` shared helper (no duplicate cleaning logic)
-
-### Digest abstract fetching
-- PubMed DOI search → PubMed title search → CrossRef DOI → HTTP crawling
-- `extract_doi()` synthesizes arXiv DOI from abs URL (`10.48550/arXiv.{id}`)
-- DOI regex strips bioRxiv suffixes (`.full.pdf`, `.full`, `.abstract`)
-- `_resolve_url` strips arXiv `.pdf` extension, bioRxiv suffixes
-- CrossRef `Accept: application/json` header override (was broken by shared `text/html` client)
+### `--output-json` option (feat/output-json branch, PR pending)
+- Added `--output-json <path>` to digest command for scheduled Claude agent post-processing
+- Uses `dataclasses.fields` + `getattr` instead of `asdict` to avoid deep-copying 1024d embeddings
+- Datetime fields explicitly serialized to ISO format
+- Updated README and docs/architecture.md
 
 ### Other
-- `--no-summary` → `--summary`, `--no-slack` controls terminal output
-- Slack title duplication fixed
-- Scholar parser: `get_text(separator=" ")` fixes word concatenation
-- Digest papers sorted by top-1 reference
-- Clustering tried and removed (too noisy)
-
-### Test results (2 batches, 68 papers)
-- 73 full abstracts (67%), 37 snippets (33%)
-- Remaining snippets: Springer/Nature/ScienceDirect/ACS bot blocking + PubMed not indexed
+- Added Development section to README (pre-commit install instructions)
+- papers.md updated (29 → 35 reference papers)
+- Crontab updated: `--days-back 999 --max-results 200 --batches 5`
+- pre-commit hook was not installed — now documented and installed
 
 ## Next Steps
 
-1. **Commit** — split into logical commits
-2. **Rebuild DB** — `pixi run db-import --md`
-3. **Test digest** — verify arXiv DOI synthesis + CrossRef fallback improved coverage
-4. **Code structure refactor** — move `fetch_paper` + helpers from `cli/paper.py` to `extract/`
-5. **Crawling** — direct arXiv/bioRxiv fetch with threshold filtering
+1. **Merge PR** — `feat/output-json` PR on GitHub web
+2. **Set up Claude scheduled agent** — configure to consume `--output-json` output
+3. **Code structure refactor** — move `fetch_paper` + helpers from `cli/paper.py` to `extract/`
+4. **Crawling** — direct arXiv/bioRxiv fetch with threshold filtering
 
 ## Open Questions
 
