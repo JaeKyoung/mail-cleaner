@@ -83,7 +83,6 @@ Follow `.github/git_commit_template.md` for commit messages.
 - Types: Feat, Fix, Refactor, Design, Comment, Style, Test, Chore, Init, Rename, Remove
 - Subject: Capitalize first letter, imperative mood, no trailing period, max 50 chars
 - Body: Wrap at 72 chars, explain WHAT and WHY
-- Do NOT add "Co-Authored-By" lines
 - Before committing, ensure pre-commit hooks are installed: `pixi run pre-commit install`
 
 ## 7. PR Conventions

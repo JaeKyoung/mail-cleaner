@@ -87,6 +87,7 @@ pixi run digest --batches 1 --no-slack   # Process latest batch, terminal output
 pixi run digest --summary                # Summarize abstracts with AI (Ollama)
 pixi run digest --no-fetch-abstracts     # Use snippets only
 pixi run digest --no-cleanup             # Skip trashing processed emails
+pixi run digest --output-json /tmp/d.json  # Save results as JSON for post-processing
 
 # --- Paper DB ---
 pixi run db-add <url>                    # Add paper by URL (arXiv, Nature, bioRxiv, ...)
@@ -182,7 +183,7 @@ The project follows an ETL (Extract-Transform-Load) pipeline:
 
 ```
 Gmail API → batch detect → fetch → parse → dedup → abstract fetch (PubMed API → HTTP)
-  → summarize → embed → similarity scoring (top 3) → sort by reference → Slack
+  → summarize → embed → similarity scoring (top 3) → sort by reference → Slack / JSON
 ```
 
 - **extract/** — `GmailClient` (auth, fetch, parse, trash), `abstract_fetcher` (PubMed API → HTTP crawling fallback)
