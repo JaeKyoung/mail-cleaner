@@ -142,8 +142,8 @@ class PaperRepository:
                WHERE id = ?""",
             (*_paper_values(paper), paper_id),
         )
-        self.conn.execute("DELETE FROM papers_vec WHERE paper_id = ?", (paper_id,))
         if paper.embedding:
+            self.conn.execute("DELETE FROM papers_vec WHERE paper_id = ?", (paper_id,))
             self._save_embedding(paper_id, paper.embedding)
         self.conn.commit()
 

@@ -5,10 +5,10 @@ from pathlib import Path
 import click
 
 from larklab.cli.common import CONTEXT_SETTINGS
-from larklab.cli.paper import fetch_paper
 from larklab.config import PROJECT_ROOT, load_config
 from larklab.database.embedder import embed_paper
 from larklab.database.repository import PaperRepository
+from larklab.extract.paper_fetcher import fetch_paper
 from larklab.schemas import Paper
 
 _JSONS_DIR = PROJECT_ROOT / "data" / "jsons"
@@ -65,9 +65,9 @@ def export_papers(output, query, md):
     else:
         out_dir = Path(output) if output else _JSONS_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
-        # Clean old files
-        for f in out_dir.glob("*.json"):
-            f.unlink()
+        if out_dir.resolve() == _JSONS_DIR.resolve():
+            for f in out_dir.glob("*.json"):
+                f.unlink()
         for p in papers:
             data = _paper_to_dict(p)
             path = out_dir / f"{p.id}.json"

@@ -12,42 +12,74 @@ def send_digest_to_slack(
     config: Config,
     num_emails: int = 0,
     num_parsed: int = 0,
-) -> None:
-    """Send paper digests to Slack, one message per batch."""
+) -> list[DailyDigest]:
+    """Send paper digests to Slack, one message per batch.
+
+    Returns list of successfully sent digests.
+    """
     if not config.slack_bot_token:
         print("Slack bot token not configured, skipping Slack output.")
-        return
+        return []
 
     client = WebClient(token=config.slack_bot_token)
 
+    sent_digests = []
     for digest in digests:
-        _send_batch(client, config.slack_channel, digest)
+        if _send_batch(client, config.slack_channel, digest):
+            sent_digests.append(digest)
 
-    total = sum(len(d.papers) for d in digests)
+    total = sum(len(d.papers) for d in sent_digests)
     print(
-        f"Sent {len(digests)} batch(es) to "
+        f"Sent {len(sent_digests)}/{len(digests)} batch(es) to "
         f"#{config.slack_channel} ({total} papers total)"
     )
+    return sent_digests
 
 
-def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> None:
+def _send_batch(client: WebClient, channel: str, digest: DailyDigest) -> bool:
     """Send a single batch as summary + threaded papers."""
     count = len(digest.papers)
     summary = f"*Scholar Digest — {digest.date}*\n• {count} papers"
 
     thread_ts = _post(client, channel, summary)
     if not thread_ts:
-        return
+        return False
 
+    failed_titles = []
     for i, paper in enumerate(digest.papers):
         if i > 0:
             time.sleep(1)
-        _post_paper(client, channel, paper, thread_ts)
+        if not _post_paper(client, channel, paper, thread_ts):
+            failed_titles.append(paper.title)
+    if failed_titles:
+        print(
+            f"  Warning: {len(failed_titles)}/{len(digest.papers)} "
+            "papers failed to post"
+        )
+        _post_failed_papers(client, channel, thread_ts, failed_titles)
+    return True
+
+
+def _post_failed_papers(
+    client: WebClient, channel: str, thread_ts: str, titles: list[str]
+) -> None:
+    """Post a thread warning for paper cards that failed to send."""
+    shown = titles[:10]
+    lines = "\n".join(f"• {title}" for title in shown)
+    extra = len(titles) - len(shown)
+    if extra > 0:
+        lines += f"\n• …and {extra} more"
+    _post(
+        client,
+        channel,
+        f":warning: {len(titles)} paper card(s) failed to post:\n{lines}",
+        thread_ts=thread_ts,
+    )
 
 
 def _post_paper(
     client: WebClient, channel: str, paper: ScholarPaper, thread_ts: str
-) -> None:
+) -> bool:
     """Post a single paper as a threaded attachment."""
     authors = ", ".join(paper.authors) if paper.authors else "Unknown"
     text = paper.summary or paper.abstract or ""
@@ -76,12 +108,15 @@ def _post_paper(
         "fields": fields,
         "mrkdwn_in": ["text"],
     }
-    _post(
-        client,
-        channel,
-        "",
-        thread_ts=thread_ts,
-        attachments=[attachment],
+    return (
+        _post(
+            client,
+            channel,
+            "",
+            thread_ts=thread_ts,
+            attachments=[attachment],
+        )
+        is not None
     )
 
 

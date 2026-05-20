@@ -41,7 +41,9 @@ def fetch_full_abstracts[P: (Paper, ScholarPaper)](
                     alt_abstract, alt_doi = _fetch_abstract_pubmed(
                         client, f"{paper.title}[Title]"
                     )
-                    if alt_abstract and (not abstract or len(alt_abstract) > len(abstract)):
+                    if alt_abstract and (
+                        not abstract or len(alt_abstract) > len(abstract)
+                    ):
                         abstract = alt_abstract
                         if not doi:
                             doi = alt_doi
@@ -60,7 +62,11 @@ def fetch_full_abstracts[P: (Paper, ScholarPaper)](
                     updates["doi"] = doi
                 results.append(replace(paper, **updates) if updates else paper)
             except Exception:
-                logger.debug("Failed to fetch abstract for %s, skipping", paper.title)
+                logger.warning(
+                    "Failed to fetch abstract for %s, skipping",
+                    paper.title,
+                    exc_info=True,
+                )
                 results.append(paper)
     return results
 
@@ -106,7 +112,12 @@ def _fetch_abstract(client: httpx.Client, url: str, delay: float) -> str | None:
                 "Parse error for %s (likely binary response), skipping: %s", url, e
             )
             return None
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.ProtocolError, httpx.HTTPStatusError) as e:
+        except (
+            httpx.TimeoutException,
+            httpx.NetworkError,
+            httpx.ProtocolError,
+            httpx.HTTPStatusError,
+        ) as e:
             if attempt < max_retries:
                 logger.debug("Retry %d for %s: %s", attempt + 1, url, e)
                 time.sleep(delay)
@@ -211,8 +222,8 @@ def _fetch_abstract_crossref(client: httpx.Client, doi: str) -> str | None:
             return None
         abstract = clean_crossref_abstract(resp.json()["message"].get("abstract", ""))
         return abstract or None
-    except Exception:
-        logger.debug("CrossRef failed for DOI: %s", doi)
+    except (httpx.HTTPError, KeyError, ValueError) as e:
+        logger.debug("CrossRef failed for DOI %s: %s", doi, e)
         return None
 
 
@@ -240,8 +251,8 @@ def pubmed_esearch(client: httpx.Client, term: str) -> list[str]:
     try:
         resp = client.get(url)
         return resp.json()["esearchresult"]["idlist"]
-    except Exception:
-        logger.debug("PubMed esearch failed for term: %s", term)
+    except (httpx.HTTPError, KeyError, ValueError) as e:
+        logger.debug("PubMed esearch failed for term %s: %s", term, e)
         return []
 
 
@@ -254,6 +265,6 @@ def pubmed_efetch(client: httpx.Client, pmid: str) -> BeautifulSoup | None:
     try:
         resp = client.get(url)
         return BeautifulSoup(resp.text, "html.parser")
-    except Exception:
-        logger.debug("PubMed efetch failed for PMID: %s", pmid)
+    except httpx.HTTPError as e:
+        logger.debug("PubMed efetch failed for PMID %s: %s", pmid, e)
         return None

@@ -150,8 +150,9 @@ def digest(
 
     if no_slack:
         print_digest(digests)
+        sent_digests = digests
     else:
-        send_digest_to_slack(
+        sent_digests = send_digest_to_slack(
             digests,
             config,
             num_emails=num_emails,
@@ -159,5 +160,8 @@ def digest(
         )
 
     if not no_cleanup:
-        trashed = gmail.trash_emails(digests, verbose=verbose)
-        print(f"Trashed {len(trashed)} processed emails.")
+        if not sent_digests:
+            print("Slack delivery failed — skipping email cleanup.")
+        else:
+            trashed = gmail.trash_emails(sent_digests, verbose=verbose)
+            print(f"Trashed {len(trashed)} processed emails.")

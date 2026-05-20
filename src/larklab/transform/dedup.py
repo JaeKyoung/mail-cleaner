@@ -23,7 +23,10 @@ def group_and_dedup(papers: list[ScholarPaper]) -> list[DailyDigest]:
 
     by_date: dict[str, list[ScholarPaper]] = defaultdict(list)
     for paper in unique_papers:
-        local_date = paper.received_at.astimezone(_LOCAL_TZ).date()
+        if paper.received_at:
+            local_date = paper.received_at.astimezone(_LOCAL_TZ).date()
+        else:
+            local_date = datetime.now(_LOCAL_TZ).date()
         by_date[local_date].append(paper)
 
     digests = [

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from larklab.config import Config
-from larklab.database.embedder import embed_paper
+from larklab.database.embedder import embed_papers
 from larklab.database.repository import PaperRepository
 from larklab.extract.abstract_fetcher import fetch_full_abstracts
 from larklab.extract.gmail_client import GmailClient
@@ -110,10 +110,11 @@ def run_digest_pipeline(
         else:
             print("No reference papers in DB — skipping similarity scoring.")
 
-    # Sort papers so same top-1 reference papers are adjacent
+    # Sort papers by top-1 similarity score (highest first)
     for digest in digests:
         digest.papers.sort(
-            key=lambda p: p.similar_papers[0][0] if p.similar_papers else ""
+            key=lambda p: p.similar_papers[0][1] if p.similar_papers else 0,
+            reverse=True,
         )
 
     return digests, num_emails, len(all_papers)
@@ -125,11 +126,13 @@ def _score_similarity(
 ) -> None:
     """Embed papers and attach similarity score + closest reference title."""
     all_papers = [p for d in digests for p in d.papers]
+    if not all_papers:
+        return
     print(f"Embedding {len(all_papers)} papers for similarity scoring...")
 
-    for i, paper in enumerate(all_papers):
-        print(f"  Embedding paper {i + 1}/{len(all_papers)}...")
-        paper.embedding = embed_paper(paper)
-        results = repo.search_similar(paper.embedding, limit=3)
+    embeddings = embed_papers(all_papers)
+    for paper, embedding in zip(all_papers, embeddings):
+        paper.embedding = embedding
+        results = repo.search_similar(embedding, limit=3)
         if results:
             paper.similar_papers = [(ref.title, 1 - dist) for ref, dist in results]

@@ -30,7 +30,8 @@ src/larklab/
 ├── extract/               # Extract — data collection from external sources
 │   ├── gmail_client.py    # GmailClient class (auth, fetch, parse, trash)
 │   ├── scholar_parser.py  # HTML parsing (called via GmailClient facade)
-│   └── abstract_fetcher.py # Fetch full abstracts + DOI (PubMed API → HTTP fallback), extract_doi utility
+│   ├── abstract_fetcher.py # Fetch full abstracts + DOI (PubMed API → HTTP fallback), extract_doi utility
+│   └── paper_fetcher.py   # Fetch paper metadata by DOI/URL (PubMed → arXiv → bioRxiv → CrossRef → HTML)
 │
 ├── transform/             # Transform — data processing & analysis
 │   ├── dedup.py           # Deduplication + grouping by date

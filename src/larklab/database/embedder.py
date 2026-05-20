@@ -27,3 +27,10 @@ def embed_paper(paper: Paper | ScholarPaper) -> list[float]:
     """Generate embedding from paper title + abstract."""
     text = f"{paper.title}\n{paper.abstract}"
     return generate_embedding(text)
+
+
+def embed_papers(papers: list[Paper | ScholarPaper]) -> list[list[float]]:
+    """Generate embeddings for multiple papers in a single API call."""
+    texts = [f"{p.title}\n{p.abstract}" for p in papers]
+    response = ollama.embed(model=EMBED_MODEL, input=texts)
+    return [_truncate(v) for v in response["embeddings"]]
